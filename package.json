@@ -1,0 +1,20 @@
+{
+  "name": "fleet-automation-system",
+  "version": "1.0.0",
+  "description": "Transport Company Fleet & Rental Operations Automation System",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "test": "npm --prefix backend run test"
+  },
+  "keywords": [
+    "fleet-management",
+    "transport-automation",
+    "typescript",
+    "mongodb",
+    "nodejs"
+  ],
+  "author": "Transport Fleet Systems Team",
+  "license": "ISC"
+}
