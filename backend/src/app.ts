@@ -19,11 +19,12 @@ export function createApp(): Express {
       origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
         // Allow requests with no origin (like mobile apps, curl, or server-to-server)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-        // In development, allow localhost on any port
-        if (process.env.NODE_ENV !== 'production' && origin.startsWith('http://localhost:')) {
+        if (
+          allowedOrigins.includes('*') ||
+          allowedOrigins.includes(origin) ||
+          origin.endsWith('.vercel.app') ||
+          (process.env.NODE_ENV !== 'production' && origin.startsWith('http://localhost:'))
+        ) {
           return callback(null, true);
         }
         return callback(new Error(`Origin ${origin} not permitted by CORS policy`));

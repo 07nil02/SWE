@@ -9,7 +9,7 @@ import { Footer } from './components/Footer';
 import { VehicleDetailModal } from './components/VehicleDetailModal';
 import { BookingFlowModal } from './components/BookingFlowModal';
 import { OperationsWorkspace } from './components/OperationsWorkspace';
-import { api, Vehicle, CategoryStat, RentalBooking, FleetAnalytics } from './api/client';
+import { api, Vehicle, CategoryStat, RentalBooking, FleetAnalytics, BASE_URL } from './api/client';
 
 export const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -52,9 +52,16 @@ export const App: React.FC = () => {
       setAnalytics(stats);
     } catch (err) {
       console.error('Failed to load application data:', err);
-      setError(
-        'Connection to Fleet Dispatch Engine could not be established. Ensure backend service is operating on port 5001.'
-      );
+      const isLocal = BASE_URL.includes('localhost') || BASE_URL === '/api';
+      if (isLocal && window.location.hostname !== 'localhost') {
+        setError(
+          `Vercel Frontend is not connected to Backend API. Please set VITE_API_URL in Vercel Project Settings > Environment Variables to your Render backend URL (e.g. https://your-service.onrender.com) and Redeploy.`
+        );
+      } else {
+        setError(
+          `Cannot connect to Fleet API at ${BASE_URL}. If hosted on Render free tier, the server may take 30-50s to wake from cold sleep. Please wait and click Retry.`
+        );
+      }
     } finally {
       setLoading(false);
     }

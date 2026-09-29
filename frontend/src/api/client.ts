@@ -1,5 +1,7 @@
-const API_BASE = (import.meta as any).env?.VITE_API_URL ? `${(import.meta as any).env.VITE_API_URL.replace(/\/$/, '')}/api` : '/api';
-const BASE_URL = API_BASE;
+const rawEnvUrl: string | undefined = (import.meta as any).env?.VITE_API_URL?.trim();
+export const BASE_URL: string = rawEnvUrl
+  ? (rawEnvUrl.endsWith('/api') ? rawEnvUrl : `${rawEnvUrl.replace(/\/$/, '')}/api`)
+  : '/api';
 
 export interface CategoryStat {
   _id: string;
