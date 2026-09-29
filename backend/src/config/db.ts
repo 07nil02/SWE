@@ -12,7 +12,7 @@ export async function connectDB(): Promise<string> {
       await mongoose.connect(customUri, {
         serverSelectionTimeoutMS: 10000,
         dbName: 'transport_fleet',
-      });
+      } as mongoose.ConnectOptions);
       console.log(`[DB] Successfully connected to MongoDB Atlas (database: transport_fleet)`);
       return customUri;
     } catch (err) {
@@ -23,7 +23,7 @@ export async function connectDB(): Promise<string> {
   // Try local default mongod first with 2-second timeout
   try {
     const localUri = 'mongodb://127.0.0.1:27017/transport_fleet';
-    await mongoose.connect(localUri, { serverSelectionTimeoutMS: 2000 });
+    await mongoose.connect(localUri, { serverSelectionTimeoutMS: 2000 } as mongoose.ConnectOptions);
     console.log(`[DB] Connected to local MongoDB at ${localUri}`);
     return localUri;
   } catch {
