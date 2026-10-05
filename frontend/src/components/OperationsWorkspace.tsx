@@ -45,6 +45,8 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
   const [newOdo, setNewOdo] = useState<number>(1000);
   const [condemnVehicleId, setCondemnVehicleId] = useState<string | null>(null);
   const [salvageVal, setSalvageVal] = useState<number>(50000);
+  const [invCategoryFilter, setInvCategoryFilter] = useState<string>('ALL');
+  const [invStatusFilter, setInvStatusFilter] = useState<string>('ALL');
 
   // Workshop Form
   const [maintVehicleId, setMaintVehicleId] = useState<string>(vehicles[0]?._id || '');
@@ -232,81 +234,94 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-charcoal-950/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-      <div className="bg-charcoal-950 text-stone-100 max-w-6xl w-full border border-stone-200/15 shadow-2xl my-6 flex flex-col max-h-[92vh]">
-        {/* Top Header */}
-        <div className="p-6 border-b border-stone-200/10 flex flex-wrap justify-between items-center gap-4 bg-charcoal-900">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden animate-fadeIn">
+      <div className="bg-[#0c0e12] text-stone-100 max-w-6xl w-full h-[92vh] border border-[#c5a880]/30 shadow-2xl flex flex-col overflow-hidden rounded-xl">
+        {/* Top Header (Pinned, Non-collapsible) */}
+        <div className="p-5 sm:p-6 border-b border-white/10 flex flex-wrap justify-between items-center gap-4 bg-[#11141a] shrink-0 select-none">
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-luxury text-champagne-400 block mb-1">
-              OPERATIONAL DESK & AUDIT LEDGER
-            </span>
-            <h2 className="font-serif text-2xl sm:text-3xl text-stone-50 font-normal">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[#c5a880] font-semibold">
+                OPERATIONAL DESK & AUDIT LEDGER
+              </span>
+            </div>
+            <h2 className="font-serif text-2xl sm:text-3xl text-stone-50 font-normal mt-0.5">
               Fleet Management & Settlement Desk
             </h2>
           </div>
 
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-4">
             <button
               onClick={onRefresh}
-              className="text-xs font-mono text-stone-400 hover:text-stone-100 uppercase tracking-wider"
+              className="px-3 py-1.5 border border-white/10 hover:border-[#c5a880] text-xs font-mono text-stone-300 hover:text-stone-100 uppercase tracking-wider rounded transition-colors flex items-center gap-1.5"
             >
-              ↻ Sync Data
+              <span>↻ Sync Data</span>
             </button>
             <button
               onClick={onClose}
-              className="px-4 py-1.5 border border-stone-200/20 hover:border-stone-200/40 text-stone-300 font-mono text-xs uppercase tracking-wider"
+              className="px-4 py-1.5 bg-white/5 border border-white/15 hover:border-white/30 text-stone-200 font-mono text-xs uppercase tracking-wider rounded transition-colors"
             >
-              Return to Customer View ✕
+              Exit Desk ✕
             </button>
           </div>
         </div>
 
-        {/* Tab Controls */}
-        <div className="flex space-x-1 border-b border-stone-200/10 px-6 bg-charcoal-900/60 overflow-x-auto text-xs font-mono">
+        {/* Tab Controls (Sticky, Fixed Height, Never Compressed, Horizontal Scroll on Small Screens) */}
+        <div className="flex items-center space-x-1 border-b border-white/10 px-4 sm:px-6 bg-[#161a22] shrink-0 min-h-[50px] overflow-x-auto z-10 select-none">
           <button
+            type="button"
             onClick={() => setActiveTab('manifest')}
-            className={`py-3 px-4 uppercase tracking-wider border-b-2 transition-colors ${
+            className={`py-3 px-4 uppercase tracking-wider border-b-2 text-xs font-mono transition-colors shrink-0 whitespace-nowrap flex items-center gap-2 ${
               activeTab === 'manifest'
-                ? 'border-champagne-400 text-champagne-400 font-semibold'
-                : 'border-transparent text-stone-400 hover:text-stone-200'
+                ? 'border-[#c5a880] text-[#c5a880] font-semibold bg-white/5'
+                : 'border-transparent text-stone-400 hover:text-stone-200 hover:bg-white/[0.02]'
             }`}
           >
-            01. Dispatch & Settlement ({rentals.length})
+            <span>01. Dispatch &amp; Settlement</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-stone-300 font-mono">
+              {rentals.length}
+            </span>
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('inventory')}
-            className={`py-3 px-4 uppercase tracking-wider border-b-2 transition-colors ${
+            className={`py-3 px-4 uppercase tracking-wider border-b-2 text-xs font-mono transition-colors shrink-0 whitespace-nowrap flex items-center gap-2 ${
               activeTab === 'inventory'
-                ? 'border-champagne-400 text-champagne-400 font-semibold'
-                : 'border-transparent text-stone-400 hover:text-stone-200'
+                ? 'border-[#c5a880] text-[#c5a880] font-semibold bg-white/5'
+                : 'border-transparent text-stone-400 hover:text-stone-200 hover:bg-white/[0.02]'
             }`}
           >
-            02. Fleet Inventory ({vehicles.length})
+            <span>02. Fleet Inventory</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-stone-300 font-mono">
+              {vehicles.length}
+            </span>
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('workshop')}
-            className={`py-3 px-4 uppercase tracking-wider border-b-2 transition-colors ${
+            className={`py-3 px-4 uppercase tracking-wider border-b-2 text-xs font-mono transition-colors shrink-0 whitespace-nowrap flex items-center gap-2 ${
               activeTab === 'workshop'
-                ? 'border-champagne-400 text-champagne-400 font-semibold'
-                : 'border-transparent text-stone-400 hover:text-stone-200'
+                ? 'border-[#c5a880] text-[#c5a880] font-semibold bg-white/5'
+                : 'border-transparent text-stone-400 hover:text-stone-200 hover:bg-white/[0.02]'
             }`}
           >
-            03. Workshop & Fuel Logging
+            <span>03. Workshop &amp; Fuel Logging</span>
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('analytics')}
-            className={`py-3 px-4 uppercase tracking-wider border-b-2 transition-colors ${
+            className={`py-3 px-4 uppercase tracking-wider border-b-2 text-xs font-mono transition-colors shrink-0 whitespace-nowrap flex items-center gap-2 ${
               activeTab === 'analytics'
-                ? 'border-champagne-400 text-champagne-400 font-semibold'
-                : 'border-transparent text-stone-400 hover:text-stone-200'
+                ? 'border-[#c5a880] text-[#c5a880] font-semibold bg-white/5'
+                : 'border-transparent text-stone-400 hover:text-stone-200 hover:bg-white/[0.02]'
             }`}
           >
-            04. Profitability & Analytics
+            <span>04. Profitability &amp; Analytics</span>
           </button>
         </div>
 
-        {/* Workspace Body */}
-        <div className="p-6 sm:p-8 flex-1 overflow-y-auto">
+        {/* Workspace Body (Scrollable container with independent scroll, min-h-0 prevents flex shrinking of siblings) */}
+        <div className="p-6 sm:p-8 flex-1 overflow-y-auto min-h-0 bg-[#0c0e12]">
           {/* TAB 1: Dispatch & Settlement Manifest */}
           {activeTab === 'manifest' && (
             <div className="space-y-6">
@@ -315,8 +330,8 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
                 <span>Enforcing Max(Hours, KM) with statutory 4-hour floor</span>
               </div>
 
-              <div className="overflow-x-auto border border-stone-200/10 bg-charcoal-900/60">
-                <table className="w-full text-left text-xs font-sans">
+              <div className="overflow-x-auto border border-stone-200/10 bg-charcoal-900/60 rounded">
+                <table className="w-full text-left text-xs font-sans min-w-[720px]">
                   <thead className="bg-charcoal-950 border-b border-stone-200/10 font-mono text-[10px] text-stone-400 uppercase tracking-wider">
                     <tr>
                       <th className="p-3">Docket #</th>
@@ -399,18 +414,80 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
           {/* TAB 2: Fleet Inventory */}
           {activeTab === 'inventory' && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center border-b border-stone-200/10 pb-3">
-                <span className="font-mono text-xs text-stone-400">52 Enrolled Assets in Sovereign Inventory</span>
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-stone-200/10 pb-4">
+                <div>
+                  <span className="font-mono text-xs text-stone-200 font-semibold uppercase tracking-wider block">
+                    Sovereign Fleet Inventory ({vehicles.length} Assets Enrolled)
+                  </span>
+                  <div className="text-[11px] font-mono text-stone-400 mt-0.5">
+                    Filter by vehicle model or deployment status to inspect chassis registry
+                  </div>
+                </div>
                 <button
                   onClick={() => setShowAddVehicle(true)}
-                  className="px-4 py-1.5 border border-champagne-400 bg-champagne-400/10 text-champagne-400 text-xs font-mono uppercase tracking-wider"
+                  className="px-4 py-1.5 border border-champagne-400 bg-champagne-400/15 hover:bg-champagne-400 text-champagne-300 hover:text-black text-xs font-mono uppercase tracking-wider transition-colors shrink-0"
                 >
                   + Enrol New Vehicle
                 </button>
               </div>
 
+              {/* Category Filter Chips */}
+              <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                <span className="text-stone-400 text-[11px] uppercase mr-1">Model:</span>
+                <button
+                  type="button"
+                  onClick={() => setInvCategoryFilter('ALL')}
+                  className={`px-2.5 py-1 rounded text-[11px] transition-colors ${
+                    invCategoryFilter === 'ALL'
+                      ? 'bg-champagne-400 text-black font-semibold'
+                      : 'bg-white/5 text-stone-300 hover:bg-white/10 border border-white/10'
+                  }`}
+                >
+                  All ({vehicles.length})
+                </button>
+                {categories.map((c) => {
+                  const count = vehicles.filter((v) => v.categoryName === c.name).length;
+                  return (
+                    <button
+                      key={c._id}
+                      type="button"
+                      onClick={() => setInvCategoryFilter(c.name)}
+                      className={`px-2.5 py-1 rounded text-[11px] transition-colors ${
+                        invCategoryFilter === c.name
+                          ? 'bg-champagne-400 text-black font-semibold'
+                          : 'bg-white/5 text-stone-300 hover:bg-white/10 border border-white/10'
+                      }`}
+                    >
+                      {c.name} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Status Filter Chips */}
+              <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                <span className="text-stone-400 text-[11px] uppercase mr-1">Status:</span>
+                {(['ALL', 'AVAILABLE', 'UNDER_REPAIR', 'RENTED_OUT'] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setInvStatusFilter(st)}
+                    className={`px-2.5 py-1 rounded text-[11px] transition-colors ${
+                      invStatusFilter === st
+                        ? 'bg-white/20 text-white font-semibold border border-white/30'
+                        : 'bg-white/5 text-stone-400 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    {st === 'ALL' ? 'All Status' : st.replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {vehicles.map((v) => (
+                {vehicles
+                  .filter((v) => invCategoryFilter === 'ALL' || v.categoryName === invCategoryFilter)
+                  .filter((v) => invStatusFilter === 'ALL' || v.status === invStatusFilter)
+                  .map((v) => (
                   <div key={v._id} className="p-4 bg-charcoal-900 border border-stone-200/10 space-y-3 font-mono text-xs">
                     <div className="flex justify-between items-start">
                       <div>
