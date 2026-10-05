@@ -47,10 +47,12 @@ export function calculateRentalCharges(input: PricingInput): PricingResult {
     advanceAmount,
   } = input;
 
-  if (hoursUsed < 0) throw new Error('Rental duration cannot be negative');
-  if (distanceKm < 0) throw new Error('Distance cannot be negative');
-  if (nightHalts < 0) throw new Error('Night halts cannot be negative');
-  if (advanceAmount < 0) throw new Error('Advance amount cannot be negative');
+  if (isNaN(hoursUsed) || hoursUsed < 0) throw new Error('Rental duration must be a valid non-negative number');
+  if (isNaN(distanceKm) || distanceKm < 0) throw new Error('Distance must be a valid non-negative number');
+  if (isNaN(nightHalts) || nightHalts < 0) throw new Error('Night halts must be a valid non-negative number');
+  if (isNaN(advanceAmount) || advanceAmount < 0) throw new Error('Advance amount must be a valid non-negative number');
+  if (isNaN(baseHourlyRate) || baseHourlyRate <= 0) throw new Error('Base hourly rate must be a positive number');
+  if (isNaN(baseKmRate) || baseKmRate <= 0) throw new Error('Base km rate must be a positive number');
 
   // AC vehicle is charged 50% more
   const acMultiplier = isAC ? 1.5 : 1.0;

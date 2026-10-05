@@ -20,12 +20,14 @@ export const MaintenanceTab: React.FC<MaintenanceTabProps> = ({ vehicles, onRefr
   const [repairType, setRepairType] = useState<string>('Routine Service');
   const [setUnderRepair, setSetUnderRepair] = useState<boolean>(false);
   const [submittingMaint, setSubmittingMaint] = useState<boolean>(false);
+  const [maintMessage, setMaintMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [fuelVehicleId, setFuelVehicleId] = useState<string>(vehicles[0]?._id || '');
   const [liters, setLiters] = useState<number>(40);
   const [costPerLiter, setCostPerLiter] = useState<number>(90);
   const [odometerAtFill, setOdometerAtFill] = useState<number>(20000);
   const [submittingFuel, setSubmittingFuel] = useState<boolean>(false);
+  const [fuelMessage, setFuelMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -49,22 +51,36 @@ export const MaintenanceTab: React.FC<MaintenanceTabProps> = ({ vehicles, onRefr
 
   const handleCreateMaintenance = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!maintVehicleId || !description || cost <= 0) return;
+    setMaintMessage(null);
+    if (!maintVehicleId) {
+      setMaintMessage({ type: 'error', text: 'Please select a vehicle asset.' });
+      return;
+    }
+    if (!description || description.trim().length < 3) {
+      setMaintMessage({ type: 'error', text: 'Work order description must be at least 3 characters.' });
+      return;
+    }
+    if (isNaN(cost) || cost <= 0) {
+      setMaintMessage({ type: 'error', text: 'Cost must be a positive number.' });
+      return;
+    }
+
     setSubmittingMaint(true);
     try {
       await api.createMaintenanceLog({
         vehicleId: maintVehicleId,
-        description,
+        description: description.trim(),
         cost: Number(cost),
-        workshop,
+        workshop: workshop.trim(),
         repairType,
         setUnderRepair,
       });
       setDescription('');
+      setMaintMessage({ type: 'success', text: `Workshop order of ₹${cost} successfully recorded.` });
       fetchLogs();
       onRefresh();
     } catch (err) {
-      alert((err as Error).message);
+      setMaintMessage({ type: 'error', text: (err as Error).message });
     } finally {
       setSubmittingMaint(false);
     }
@@ -72,19 +88,33 @@ export const MaintenanceTab: React.FC<MaintenanceTabProps> = ({ vehicles, onRefr
 
   const handleCreateFuel = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fuelVehicleId || liters <= 0 || costPerLiter <= 0) return;
+    setFuelMessage(null);
+    if (!fuelVehicleId) {
+      setFuelMessage({ type: 'error', text: 'Please select a vehicle asset.' });
+      return;
+    }
+    if (isNaN(liters) || liters <= 0) {
+      setFuelMessage({ type: 'error', text: 'Liters must be a positive number.' });
+      return;
+    }
+    if (isNaN(costPerLiter) || costPerLiter <= 0) {
+      setFuelMessage({ type: 'error', text: 'Cost per liter must be a positive number.' });
+      return;
+    }
+
     setSubmittingFuel(true);
     try {
       await api.createFuelLog({
         vehicleId: fuelVehicleId,
         liters: Number(liters),
         costPerLiter: Number(costPerLiter),
-        odometerAtFill: Number(odometerAtFill),
+        odometerAtFill: !isNaN(Number(odometerAtFill)) ? Number(odometerAtFill) : undefined,
       });
+      setFuelMessage({ type: 'success', text: `Fuel dispense log of ${liters}L recorded.` });
       fetchLogs();
       onRefresh();
     } catch (err) {
-      alert((err as Error).message);
+      setFuelMessage({ type: 'error', text: (err as Error).message });
     } finally {
       setSubmittingFuel(false);
     }
@@ -160,6 +190,17 @@ export const MaintenanceTab: React.FC<MaintenanceTabProps> = ({ vehicles, onRefr
           {/* New Work Order Form (5 Cols) */}
           <div className="lg:col-span-5 bg-navy-900 border border-ivory-100/10 p-8 space-y-4">
             <SectionLabel number="07" label="Record Mechanical Work Order" badge="Depot Registry" />
+
+            {maintMessage && (
+              <div className={`p-3 border font-mono text-xs flex items-center justify-between ${
+                maintMessage.type === 'success'
+                  ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-200'
+                  : 'bg-red-950/70 border-red-500/50 text-red-200'
+              }`}>
+                <span>{maintMessage.type === 'success' ? '✓' : '⚠'} {maintMessage.text}</span>
+                <button type="button" onClick={() => setMaintMessage(null)} className="text-stone-400 hover:text-white ml-2">✕</button>
+              </div>
+            )}
 
             <form onSubmit={handleCreateMaintenance} className="space-y-4 font-sans text-xs">
               <div>
@@ -319,6 +360,17 @@ export const MaintenanceTab: React.FC<MaintenanceTabProps> = ({ vehicles, onRefr
           {/* New Fuel Form (5 Cols) */}
           <div className="lg:col-span-5 bg-navy-900 border border-ivory-100/10 p-8 space-y-4">
             <SectionLabel number="08" label="Record Fuel Dispense Volume" badge="Fuel Ledger" />
+
+            {fuelMessage && (
+              <div className={`p-3 border font-mono text-xs flex items-center justify-between ${
+                fuelMessage.type === 'success'
+                  ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-200'
+                  : 'bg-red-950/70 border-red-500/50 text-red-200'
+              }`}>
+                <span>{fuelMessage.type === 'success' ? '✓' : '⚠'} {fuelMessage.text}</span>
+                <button type="button" onClick={() => setFuelMessage(null)} className="text-stone-400 hover:text-white ml-2">✕</button>
+              </div>
+            )}
 
             <form onSubmit={handleCreateFuel} className="space-y-4 font-sans text-xs">
               <div>

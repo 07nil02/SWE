@@ -2,16 +2,23 @@ import { Request, Response } from 'express';
 import { User, UserRole } from '../models/User.js';
 import { AuthRequest, generateToken } from '../middleware/authMiddleware.js';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function register(req: Request, res: Response): Promise<void> {
   try {
     const { name, email, password, role, phone, drivingLicense } = req.body;
 
-    if (!name || !email || !password) {
-      res.status(400).json({ success: false, message: 'Name, email, and password are required.' });
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
+      res.status(400).json({ success: false, message: 'Full name is required and must be at least 2 characters long.' });
       return;
     }
 
-    if (password.length < 6) {
+    if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
+      res.status(400).json({ success: false, message: 'A valid email address is required.' });
+      return;
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 6) {
       res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
       return;
     }
@@ -69,8 +76,13 @@ export async function login(req: Request, res: Response): Promise<void> {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      res.status(400).json({ success: false, message: 'Email and password are required.' });
+    if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
+      res.status(400).json({ success: false, message: 'A valid email address is required.' });
+      return;
+    }
+
+    if (!password || typeof password !== 'string' || password.length === 0) {
+      res.status(400).json({ success: false, message: 'Password is required.' });
       return;
     }
 

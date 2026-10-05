@@ -317,4 +317,123 @@ describe('End-to-End Fleet Automation & Role-Based Access API Test Suite', () =>
       expect(res.body.data.categoryStatistics.length).toBe(5);
     });
   });
+
+  describe('7. Validation, Edge Cases & Illegal Values Robustness', () => {
+    it('Rejects user registration with invalid email or short password', async () => {
+      const badEmail = await request(app)
+        .post('/api/auth/register')
+        .send({ name: 'Bob', email: 'notanemail', password: 'password123' });
+      expect(badEmail.status).toBe(400);
+
+      const shortPw = await request(app)
+        .post('/api/auth/register')
+        .send({ name: 'Bob', email: 'bob@example.com', password: '123' });
+      expect(shortPw.status).toBe(400);
+    });
+
+    it('Rejects vehicle booking with negative advance, past date, or invalid name', async () => {
+      const car = await Vehicle.findOne({ status: 'AVAILABLE' });
+
+      // Negative advance
+      const negAdv = await request(app)
+        .post('/api/rentals/book')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          customerName: 'Alice Smith',
+          customerPhone: '9876543210',
+          vehicleId: car!._id,
+          expectedReturnDate: new Date(Date.now() + 86400000).toISOString(),
+          advanceAmount: -500,
+        });
+      expect(negAdv.status).toBe(400);
+
+      // Past return date
+      const pastDate = await request(app)
+        .post('/api/rentals/book')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          customerName: 'Alice Smith',
+          customerPhone: '9876543210',
+          vehicleId: car!._id,
+          expectedReturnDate: new Date(Date.now() - 86400000).toISOString(),
+          advanceAmount: 1000,
+        });
+      expect(pastDate.status).toBe(400);
+
+      // Short name
+      const shortName = await request(app)
+        .post('/api/rentals/book')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          customerName: 'A',
+          customerPhone: '9876543210',
+          vehicleId: car!._id,
+          expectedReturnDate: new Date(Date.now() + 86400000).toISOString(),
+          advanceAmount: 1000,
+        });
+      expect(shortName.status).toBe(400);
+    });
+
+    it('Rejects vehicle acquisition with invalid price or short registration', async () => {
+      const cat = await VehicleCategory.findOne();
+
+      const badPrice = await request(app)
+        .post('/api/vehicles')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          registrationNumber: 'DL-01-VALID',
+          categoryId: cat!._id,
+          purchasePrice: -100,
+        });
+      expect(badPrice.status).toBe(400);
+
+      const badReg = await request(app)
+        .post('/api/vehicles')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          registrationNumber: 'A',
+          categoryId: cat!._id,
+          purchasePrice: 500000,
+        });
+      expect(badReg.status).toBe(400);
+    });
+
+    it('Rejects maintenance with non-positive cost and fuel with lower odometer', async () => {
+      const car = await Vehicle.findOne({ status: 'AVAILABLE' });
+
+      const negMaint = await request(app)
+        .post('/api/maintenance')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          vehicleId: car!._id,
+          description: 'Oil check',
+          cost: -200,
+        });
+      expect(negMaint.status).toBe(400);
+
+      const lowOdoFuel = await request(app)
+        .post('/api/fuel')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          vehicleId: car!._id,
+          liters: 10,
+          costPerLiter: 90,
+          odometerAtFill: car!.currentOdometer - 100,
+        });
+      expect(lowOdoFuel.status).toBe(400);
+    });
+
+    it('Rejects updating category rates with non-positive numbers', async () => {
+      const cat = await VehicleCategory.findOne();
+
+      const badRates = await request(app)
+        .put(`/api/categories/${cat!._id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          baseHourlyRate: -10,
+          baseKmRate: 0,
+        });
+      expect(badRates.status).toBe(400);
+    });
+  });
 });

@@ -19,6 +19,7 @@ export const RatesEstimatorTab: React.FC<RatesEstimatorTabProps> = ({ categories
   const [editHourly, setEditHourly] = useState<number>(0);
   const [editKm, setEditKm] = useState<number>(0);
   const [savingRate, setSavingRate] = useState<boolean>(false);
+  const [rateError, setRateError] = useState<string | null>(null);
 
   const selectedCategory = categories.find((c) => c._id === selectedCatId) || categories[0];
 
@@ -26,14 +27,19 @@ export const RatesEstimatorTab: React.FC<RatesEstimatorTabProps> = ({ categories
   const effectiveHourlyRate = selectedCategory ? Number((selectedCategory.baseHourlyRate * acMultiplier).toFixed(2)) : 0;
   const effectiveKmRate = selectedCategory ? Number((selectedCategory.baseKmRate * acMultiplier).toFixed(2)) : 0;
 
-  const hourlyCharge = Number((hoursUsed * effectiveHourlyRate).toFixed(2));
-  const kmCharge = Number((distanceKm * effectiveKmRate).toFixed(2));
+  const validHours = Math.max(0, hoursUsed || 0);
+  const validDist = Math.max(0, distanceKm || 0);
+  const validNight = Math.max(0, nightHalts || 0);
+  const validAdv = Math.max(0, advanceAmount || 0);
+
+  const hourlyCharge = Number((validHours * effectiveHourlyRate).toFixed(2));
+  const kmCharge = Number((validDist * effectiveKmRate).toFixed(2));
   const min4HourCharge = Number((4 * effectiveHourlyRate).toFixed(2));
   const maxUsage = Math.max(hourlyCharge, kmCharge);
   const usageCharge = Math.max(maxUsage, min4HourCharge);
-  const nightHaltCharge = nightHalts * 150;
+  const nightHaltCharge = validNight * 150;
   const totalAmount = Number((usageCharge + nightHaltCharge).toFixed(2));
-  const diff = Number((advanceAmount - totalAmount).toFixed(2));
+  const diff = Number((validAdv - totalAmount).toFixed(2));
 
   let dominantNote = '';
   if (usageCharge === min4HourCharge && maxUsage < min4HourCharge) {
@@ -45,19 +51,25 @@ export const RatesEstimatorTab: React.FC<RatesEstimatorTabProps> = ({ categories
   }
 
   const handleStartEdit = (cat: CategoryStat) => {
+    setRateError(null);
     setEditingId(cat._id);
     setEditHourly(cat.baseHourlyRate);
     setEditKm(cat.baseKmRate);
   };
 
   const handleSaveRate = async (id: string) => {
+    setRateError(null);
+    if (isNaN(editHourly) || editHourly <= 0 || isNaN(editKm) || editKm <= 0) {
+      setRateError('Base hourly rate and kilometer rate must be positive numbers');
+      return;
+    }
     setSavingRate(true);
     try {
       await api.updateCategoryRates(id, editHourly, editKm);
       setEditingId(null);
       onRefresh();
     } catch (err) {
-      alert((err as Error).message);
+      setRateError((err as Error).message);
     } finally {
       setSavingRate(false);
     }
@@ -252,6 +264,12 @@ export const RatesEstimatorTab: React.FC<RatesEstimatorTabProps> = ({ categories
       {/* Official Tariff Schedule Table */}
       <div>
         <SectionLabel number="06" label="Authorized Sovereign Tariff Master Schedule" badge="Codex 2026" />
+        {rateError && (
+          <div className="mb-4 p-3 bg-red-950/70 border border-red-500/50 text-red-200 text-xs font-mono flex items-center justify-between">
+            <span>⚠ {rateError}</span>
+            <button onClick={() => setRateError(null)} className="text-red-400 hover:text-white">✕</button>
+          </div>
+        )}
         <div className="border border-ivory-100/10 overflow-hidden bg-navy-900">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-sans">

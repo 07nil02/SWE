@@ -40,6 +40,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   const [advanceAmount, setAdvanceAmount] = useState<number>(2000);
   const [bookNotes, setBookNotes] = useState<string>('');
   const [bookError, setBookError] = useState<string>('');
+  const [dispatchError, setDispatchError] = useState<string>('');
 
   const [dispatchOdo, setDispatchOdo] = useState<number>(0);
   const [dispatchTime, setDispatchTime] = useState<string>(
@@ -74,20 +75,39 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     setBookError('');
-    if (!custName || !custPhone || !bookVehicleId || !expectedReturn || advanceAmount <= 0) {
-      setBookError('All required fields and a valid advance remittance must be provided.');
+    if (!custName || custName.trim().length < 2) {
+      setBookError('Customer full name must be at least 2 characters.');
       return;
     }
+    const cleanPhone = custPhone.replace(/\D/g, '');
+    if (!custPhone || cleanPhone.length < 7) {
+      setBookError('Contact phone must contain at least 7 digits.');
+      return;
+    }
+    if (isNaN(advanceAmount) || advanceAmount <= 0) {
+      setBookError('Advance remittance must be a valid positive amount.');
+      return;
+    }
+    const rMs = new Date(expectedReturn).getTime();
+    if (isNaN(rMs) || rMs <= Date.now()) {
+      setBookError('Expected return date must be in the future.');
+      return;
+    }
+    if (!bookVehicleId) {
+      setBookError('Please select a vehicle asset.');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await api.createBooking({
-        customerName: custName,
-        customerPhone: custPhone,
-        customerLicense: custLicense,
+        customerName: custName.trim(),
+        customerPhone: custPhone.trim(),
+        customerLicense: custLicense.trim() || undefined,
         vehicleId: bookVehicleId,
         expectedReturnDate: expectedReturn,
         advanceAmount: Number(advanceAmount),
-        notes: bookNotes,
+        notes: bookNotes.trim(),
       });
       if (res.success) {
         setShowBookModal(false);
@@ -109,6 +129,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
 
   const handleOpenDispatch = (rental: RentalBooking) => {
     setDispatchModalRental(rental);
+    setDispatchError('');
     const v = vehicles.find((veh) => veh.registrationNumber === rental.vehicleReg);
     setDispatchOdo(v?.currentOdometer || 0);
     setDispatchTime(new Date().toISOString().slice(0, 16));
@@ -117,16 +138,29 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   const handleConfirmDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dispatchModalRental) return;
+    setDispatchError('');
+
+    const targetVeh = vehicles.find((v) => v.registrationNumber === dispatchModalRental.vehicleReg);
+    const minOdo = targetVeh ? targetVeh.currentOdometer : 0;
+    if (isNaN(dispatchOdo) || dispatchOdo < minOdo) {
+      setDispatchError(`Starting odometer cannot be less than current asset odometer (${minOdo} km).`);
+      return;
+    }
+
     setLoading(true);
     try {
-      await api.dispatchVehicle(dispatchModalRental._id, {
+      const res = await api.dispatchVehicle(dispatchModalRental._id, {
         dispatchedAt: dispatchTime ? new Date(dispatchTime).toISOString() : undefined,
         startOdometer: Number(dispatchOdo),
       });
-      setDispatchModalRental(null);
-      onRefresh();
+      if (res.success) {
+        setDispatchModalRental(null);
+        onRefresh();
+      } else {
+        setDispatchError(res.message || 'Dispatch authorization failed.');
+      }
     } catch (err) {
-      alert((err as Error).message);
+      setDispatchError((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -549,6 +583,13 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                 Record Departure Mile-Meter Deposition
               </h3>
             </div>
+
+            {dispatchError && (
+              <div className="p-3 mb-4 bg-red-950/70 border border-red-500/50 text-red-200 text-xs font-mono flex items-center justify-between">
+                <span>⚠ {dispatchError}</span>
+                <button type="button" onClick={() => setDispatchError('')} className="text-red-400 hover:text-white">✕</button>
+              </div>
+            )}
 
             <form onSubmit={handleConfirmDispatch} className="space-y-4 font-sans text-xs">
               <div className="p-3 bg-navy-950 border border-ivory-100/10 font-mono text-[11px] space-y-1">

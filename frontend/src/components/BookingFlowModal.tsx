@@ -67,22 +67,65 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
 
   const availableVehicles = vehicles.filter((v) => v.status === 'AVAILABLE');
 
-  const handleConfirmReservation = async () => {
+  const validateDates = (): boolean => {
     setErrorMsg('');
-    if (!customerName || !customerPhone || !selectedVehicleId || advanceAmount <= 0) {
-      setErrorMsg('Please complete all driver details and provide a valid advance remittance.');
-      return;
+    const pMs = new Date(pickupDate).getTime();
+    const rMs = new Date(expectedReturn).getTime();
+    if (isNaN(pMs) || isNaN(rMs)) {
+      setErrorMsg('Please specify valid departure and return dates/times.');
+      return false;
     }
+    if (pMs < Date.now() - 10 * 60 * 1000) {
+      setErrorMsg('Departure date cannot be in the past.');
+      return false;
+    }
+    if (rMs <= pMs) {
+      setErrorMsg('Expected return time must be strictly after departure time.');
+      return false;
+    }
+    const durationHours = (rMs - pMs) / (1000 * 60 * 60);
+    if (durationHours < 4) {
+      setErrorMsg('Rental duration must be at least 4 hours (statutory minimum rental).');
+      return false;
+    }
+    return true;
+  };
+
+  const validateDriverAndAdvance = (): boolean => {
+    setErrorMsg('');
+    if (!customerName || customerName.trim().length < 2) {
+      setErrorMsg('Driver full name must be at least 2 characters.');
+      return false;
+    }
+    const cleanPhone = customerPhone.replace(/\D/g, '');
+    if (!customerPhone || cleanPhone.length < 7) {
+      setErrorMsg('Please provide a valid contact phone number with at least 7 digits.');
+      return false;
+    }
+    if (isNaN(advanceAmount) || advanceAmount <= 0) {
+      setErrorMsg('Advance deposit must be a valid positive amount.');
+      return false;
+    }
+    if (!selectedVehicleId) {
+      setErrorMsg('Please select a vehicle asset for reservation.');
+      return false;
+    }
+    return true;
+  };
+
+  const handleConfirmReservation = async () => {
+    if (!validateDates()) return;
+    if (!validateDriverAndAdvance()) return;
     setSubmitting(true);
     try {
       const res = await api.createBooking({
-        customerName,
-        customerPhone,
-        customerLicense,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        customerLicense: customerLicense?.trim() || undefined,
         vehicleId: selectedVehicleId,
         expectedReturnDate: expectedReturn,
         advanceAmount: Number(advanceAmount),
-        notes: `Pickup Hub: ${pickupHub} | ${notes}`,
+        notes: `Pickup Hub: ${pickupHub} | ${notes.trim()}`,
       });
       if (res.success) {
         setConfirmedBooking(res.data);
@@ -201,7 +244,11 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
 
                 <div className="pt-4 flex justify-end">
                   <button
-                    onClick={() => setStep(2)}
+                    onClick={() => {
+                      if (validateDates()) {
+                        setStep(2);
+                      }
+                    }}
                     className="px-6 py-2.5 bg-charcoal-950 text-stone-50 font-mono text-xs uppercase tracking-widest hover:bg-charcoal-800"
                   >
                     Select Vehicle →
@@ -385,11 +432,9 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      if (!customerName || !customerPhone) {
-                        setErrorMsg('Please specify driver name and contact phone.');
-                        return;
+                      if (validateDriverAndAdvance()) {
+                        setStep(4);
                       }
-                      setStep(4);
                     }}
                     className="px-6 py-2.5 bg-charcoal-950 text-stone-50 font-mono text-xs uppercase tracking-widest hover:bg-charcoal-800"
                   >

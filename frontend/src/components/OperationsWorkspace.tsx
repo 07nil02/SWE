@@ -63,21 +63,49 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
 
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [dispatchError, setDispatchError] = useState('');
+  const [addVehicleError, setAddVehicleError] = useState('');
+  const [condemnError, setCondemnError] = useState('');
+  const [maintMessage, setMaintMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [fuelMessage, setFuelMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Handle Dispatch
   const handleConfirmDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dispatchRental) return;
+    setDispatchError('');
+
+    const targetVehicle = vehicles.find((v) => v.registrationNumber === dispatchRental.vehicleReg);
+    const minOdo = targetVehicle ? targetVehicle.currentOdometer : 0;
+
+    if (isNaN(dispatchOdo) || dispatchOdo < 0) {
+      setDispatchError('Starting odometer must be a non-negative number.');
+      return;
+    }
+    if (dispatchOdo < minOdo) {
+      setDispatchError(`Starting odometer (${dispatchOdo} km) cannot be less than current odometer (${minOdo} km).`);
+      return;
+    }
+    const dTime = new Date(dispatchTime).getTime();
+    if (isNaN(dTime)) {
+      setDispatchError('Please specify a valid departure timestamp.');
+      return;
+    }
+
     setActionLoading(true);
     try {
-      await api.dispatchVehicle(dispatchRental._id, {
-        dispatchedAt: dispatchTime ? new Date(dispatchTime).toISOString() : undefined,
+      const res = await api.dispatchVehicle(dispatchRental._id, {
+        dispatchedAt: new Date(dispatchTime).toISOString(),
         startOdometer: Number(dispatchOdo),
       });
-      setDispatchRental(null);
-      onRefresh();
+      if (res.success) {
+        setDispatchRental(null);
+        onRefresh();
+      } else {
+        setDispatchError(res.message || 'Dispatch authorization failed.');
+      }
     } catch (err) {
-      alert((err as Error).message);
+      setDispatchError((err as Error).message);
     } finally {
       setActionLoading(false);
     }
@@ -88,24 +116,41 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
     e.preventDefault();
     if (!returnRental) return;
     setActionError('');
-    if (returnOdo < (returnRental.startOdometer || 0)) {
-      setActionError(`Return odometer (${returnOdo}) cannot be lower than departure reading (${returnRental.startOdometer})`);
+
+    const startOdo = returnRental.startOdometer || 0;
+    if (isNaN(returnOdo) || returnOdo < startOdo) {
+      setActionError(`Return odometer (${returnOdo} km) cannot be lower than departure reading (${startOdo} km).`);
       return;
     }
+    const rTime = new Date(returnTime).getTime();
+    const dTime = returnRental.dispatchedAt ? new Date(returnRental.dispatchedAt).getTime() : 0;
+    if (isNaN(rTime)) {
+      setActionError('Please specify a valid return timestamp.');
+      return;
+    }
+    if (dTime && rTime < dTime) {
+      setActionError('Return timestamp cannot be earlier than departure timestamp.');
+      return;
+    }
+    if (isNaN(nightHalts) || nightHalts < 0) {
+      setActionError('Night halts must be a non-negative number.');
+      return;
+    }
+
     setActionLoading(true);
     try {
       const res = await api.returnVehicle(returnRental._id, {
-        actualReturnDate: returnTime ? new Date(returnTime).toISOString() : undefined,
+        actualReturnDate: new Date(returnTime).toISOString(),
         endOdometer: Number(returnOdo),
-        nightHalts: Number(nightHalts),
-        notes: returnNotes,
+        nightHalts: Math.max(0, Math.floor(Number(nightHalts))),
+        notes: returnNotes.trim(),
       });
       if (res.success) {
         setSettlementReceipt(res.data.calculationDetails);
         setReturnRental(null);
         onRefresh();
       } else {
-        setActionError(res.message);
+        setActionError(res.message || 'Return settlement failed.');
       }
     } catch (err) {
       setActionError((err as Error).message);
@@ -117,20 +162,43 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
   // Handle Add Vehicle
   const handleAddVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAddVehicleError('');
+
+    if (!newReg || newReg.trim().length < 3) {
+      setAddVehicleError('Vehicle registration number must be at least 3 characters.');
+      return;
+    }
+    if (!newCatId) {
+      setAddVehicleError('Please select a vehicle category.');
+      return;
+    }
+    if (isNaN(newPrice) || newPrice <= 0) {
+      setAddVehicleError('Acquisition purchase price must be a positive number.');
+      return;
+    }
+    if (isNaN(newOdo) || newOdo < 0) {
+      setAddVehicleError('Initial odometer must be a non-negative number.');
+      return;
+    }
+
     setActionLoading(true);
     try {
-      await api.addVehicle({
-        registrationNumber: newReg,
+      const res = await api.addVehicle({
+        registrationNumber: newReg.trim().toUpperCase(),
         categoryId: newCatId,
         isAC: newIsAC,
         purchasePrice: Number(newPrice),
         currentOdometer: Number(newOdo),
       });
-      setShowAddVehicle(false);
-      setNewReg('');
-      onRefresh();
+      if (res.success) {
+        setShowAddVehicle(false);
+        setNewReg('');
+        onRefresh();
+      } else {
+        setAddVehicleError(res.message || 'Failed to add vehicle.');
+      }
     } catch (err) {
-      alert((err as Error).message);
+      setAddVehicleError((err as Error).message);
     } finally {
       setActionLoading(false);
     }
@@ -140,13 +208,24 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
   const handleCondemn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!condemnVehicleId) return;
+    setCondemnError('');
+
+    if (isNaN(salvageVal) || salvageVal < 0) {
+      setCondemnError('Salvage value must be a non-negative number.');
+      return;
+    }
+
     setActionLoading(true);
     try {
-      await api.condemnVehicle(condemnVehicleId, salvageVal);
-      setCondemnVehicleId(null);
-      onRefresh();
+      const res = await api.condemnVehicle(condemnVehicleId, Number(salvageVal));
+      if (res.success) {
+        setCondemnVehicleId(null);
+        onRefresh();
+      } else {
+        setCondemnError(res.message || 'Decommissioning asset failed.');
+      }
     } catch (err) {
-      alert((err as Error).message);
+      setCondemnError((err as Error).message);
     } finally {
       setActionLoading(false);
     }
@@ -155,21 +234,40 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
   // Handle Maintenance
   const handleLogMaintenance = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMaintMessage(null);
+
+    if (!maintVehicleId) {
+      setMaintMessage({ type: 'error', text: 'Please select a vehicle for maintenance.' });
+      return;
+    }
+    if (!maintDesc || maintDesc.trim().length < 3) {
+      setMaintMessage({ type: 'error', text: 'Please enter a work order description of at least 3 characters.' });
+      return;
+    }
+    if (isNaN(maintCost) || maintCost <= 0) {
+      setMaintMessage({ type: 'error', text: 'Maintenance cost must be a positive number.' });
+      return;
+    }
+
     setActionLoading(true);
     try {
-      await api.createMaintenanceLog({
+      const res = await api.createMaintenanceLog({
         vehicleId: maintVehicleId,
-        description: maintDesc,
+        description: maintDesc.trim(),
         cost: Number(maintCost),
-        workshop: workshopName,
+        workshop: workshopName.trim(),
         repairType: maintType,
         setUnderRepair: groundInWorkshop,
       });
-      setMaintDesc('');
-      alert('Workshop work order registered.');
-      onRefresh();
+      if (res.success) {
+        setMaintDesc('');
+        setMaintMessage({ type: 'success', text: `Workshop work order of ₹${maintCost} recorded.` });
+        onRefresh();
+      } else {
+        setMaintMessage({ type: 'error', text: res.message || 'Maintenance record failed.' });
+      }
     } catch (err) {
-      alert((err as Error).message);
+      setMaintMessage({ type: 'error', text: (err as Error).message });
     } finally {
       setActionLoading(false);
     }
@@ -178,17 +276,36 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
   // Handle Fuel
   const handleLogFuel = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFuelMessage(null);
+
+    if (!fuelVehicleId) {
+      setFuelMessage({ type: 'error', text: 'Please select a vehicle for fueling.' });
+      return;
+    }
+    if (isNaN(fuelLiters) || fuelLiters <= 0) {
+      setFuelMessage({ type: 'error', text: 'Fuel volume must be a positive number of liters.' });
+      return;
+    }
+    if (isNaN(fuelCostPerL) || fuelCostPerL <= 0) {
+      setFuelMessage({ type: 'error', text: 'Cost per liter must be a positive number.' });
+      return;
+    }
+
     setActionLoading(true);
     try {
-      await api.createFuelLog({
+      const res = await api.createFuelLog({
         vehicleId: fuelVehicleId,
         liters: Number(fuelLiters),
         costPerLiter: Number(fuelCostPerL),
       });
-      alert('Fuel dispense log recorded.');
-      onRefresh();
+      if (res.success) {
+        setFuelMessage({ type: 'success', text: `Fuel dispense log of ${fuelLiters}L recorded.` });
+        onRefresh();
+      } else {
+        setFuelMessage({ type: 'error', text: res.message || 'Fuel log recording failed.' });
+      }
     } catch (err) {
-      alert((err as Error).message);
+      setFuelMessage({ type: 'error', text: (err as Error).message });
     } finally {
       setActionLoading(false);
     }
@@ -556,6 +673,16 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
               {/* Log Maintenance */}
               <div className="p-6 bg-charcoal-900 border border-stone-200/10 space-y-4">
                 <h3 className="font-serif text-xl text-stone-100 font-normal">Log Workshop Work Order</h3>
+                {maintMessage && (
+                  <div className={`p-2.5 border text-xs font-mono flex items-center justify-between ${
+                    maintMessage.type === 'success'
+                      ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-200'
+                      : 'bg-rose-950/70 border-rose-500/50 text-rose-200'
+                  }`}>
+                    <span>{maintMessage.type === 'success' ? '✓' : '⚠'} {maintMessage.text}</span>
+                    <button type="button" onClick={() => setMaintMessage(null)} className="text-stone-400 hover:text-white ml-2">✕</button>
+                  </div>
+                )}
                 <form onSubmit={handleLogMaintenance} className="space-y-3">
                   <div>
                     <label className="block text-stone-400 text-[10px] uppercase mb-1">Select Vehicle</label>
@@ -637,6 +764,16 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
               {/* Log Fuel */}
               <div className="p-6 bg-charcoal-900 border border-stone-200/10 space-y-4">
                 <h3 className="font-serif text-xl text-stone-100 font-normal">Log Fuel Dispensation</h3>
+                {fuelMessage && (
+                  <div className={`p-2.5 border text-xs font-mono flex items-center justify-between ${
+                    fuelMessage.type === 'success'
+                      ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-200'
+                      : 'bg-rose-950/70 border-rose-500/50 text-rose-200'
+                  }`}>
+                    <span>{fuelMessage.type === 'success' ? '✓' : '⚠'} {fuelMessage.text}</span>
+                    <button type="button" onClick={() => setFuelMessage(null)} className="text-stone-400 hover:text-white ml-2">✕</button>
+                  </div>
+                )}
                 <form onSubmit={handleLogFuel} className="space-y-3">
                   <div>
                     <label className="block text-stone-400 text-[10px] uppercase mb-1">Select Vehicle</label>
@@ -760,6 +897,12 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
             <div className="bg-charcoal-900 border border-amber-500/40 max-w-md w-full p-6 text-xs font-mono space-y-4">
               <h3 className="font-serif text-xl text-stone-100 font-normal">Authorize Vehicle Departure</h3>
               <p className="text-stone-400">Booking: {dispatchRental.bookingNumber} ({dispatchRental.customerName})</p>
+              {dispatchError && (
+                <div className="p-2.5 bg-rose-950/70 border border-rose-500/50 text-rose-200 text-xs flex items-center justify-between">
+                  <span>⚠ {dispatchError}</span>
+                  <button type="button" onClick={() => setDispatchError('')} className="text-stone-400 hover:text-white ml-2">✕</button>
+                </div>
+              )}
               <form onSubmit={handleConfirmDispatch} className="space-y-3">
                 <div>
                   <label className="block text-stone-400 text-[10px] uppercase mb-1">Starting Odometer (KM)</label>
@@ -909,6 +1052,12 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
           <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
             <div className="bg-charcoal-900 border border-stone-200/20 max-w-md w-full p-6 text-xs font-mono space-y-4">
               <h3 className="font-serif text-xl text-stone-100 font-normal">Acquire New Vehicle Asset</h3>
+              {addVehicleError && (
+                <div className="p-2.5 bg-rose-950/70 border border-rose-500/50 text-rose-200 text-xs flex items-center justify-between">
+                  <span>⚠ {addVehicleError}</span>
+                  <button type="button" onClick={() => setAddVehicleError('')} className="text-stone-400 hover:text-white ml-2">✕</button>
+                </div>
+              )}
               <form onSubmit={handleAddVehicle} className="space-y-3">
                 <div>
                   <label className="block text-stone-400 text-[10px] uppercase mb-1">Registration #</label>
@@ -981,6 +1130,12 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
           <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
             <div className="bg-charcoal-900 border border-rose-500/40 max-w-md w-full p-6 text-xs font-mono space-y-4">
               <h3 className="font-serif text-xl text-rose-300 font-normal">Condemn & Decommission Asset</h3>
+              {condemnError && (
+                <div className="p-2.5 bg-rose-950/70 border border-rose-500/50 text-rose-200 text-xs flex items-center justify-between">
+                  <span>⚠ {condemnError}</span>
+                  <button type="button" onClick={() => setCondemnError('')} className="text-stone-400 hover:text-white ml-2">✕</button>
+                </div>
+              )}
               <form onSubmit={handleCondemn} className="space-y-3">
                 <div>
                   <label className="block text-stone-400 text-[10px] uppercase mb-1">Salvage Value (₹)</label>

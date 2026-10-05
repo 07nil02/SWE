@@ -34,6 +34,7 @@ export const FleetTab: React.FC<FleetTabProps> = ({
   const [newOdo, setNewOdo] = useState<number>(1000);
   const [newNotes, setNewNotes] = useState<string>('');
   const [formError, setFormError] = useState<string>('');
+  const [condemnError, setCondemnError] = useState<string>('');
   const [loadingAction, setLoadingAction] = useState<boolean>(false);
 
   const filtered = vehicles.filter((v) => {
@@ -66,14 +67,19 @@ export const FleetTab: React.FC<FleetTabProps> = ({
   const handleCondemn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!condemnVehicleId) return;
+    setCondemnError('');
+    if (isNaN(salvageValue) || salvageValue < 0) {
+      setCondemnError('Salvage disposal value must be a non-negative number.');
+      return;
+    }
     setLoadingAction(true);
     try {
-      await api.condemnVehicle(condemnVehicleId, salvageValue, condemnNotes);
+      await api.condemnVehicle(condemnVehicleId, Number(salvageValue), condemnNotes.trim());
       setCondemnVehicleId(null);
       setCondemnNotes('');
       onRefresh();
     } catch (err) {
-      alert((err as Error).message);
+      setCondemnError((err as Error).message);
     } finally {
       setLoadingAction(false);
     }
@@ -82,19 +88,31 @@ export const FleetTab: React.FC<FleetTabProps> = ({
   const handleAddVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
-    if (!newReg || !newCategory || !newPrice) {
-      setFormError('All mandatory fields must be specified.');
+    if (!newReg || newReg.trim().length < 3) {
+      setFormError('Registration number must be at least 3 characters.');
+      return;
+    }
+    if (!newCategory) {
+      setFormError('Please select a valid vehicle category.');
+      return;
+    }
+    if (isNaN(newPrice) || newPrice <= 0) {
+      setFormError('Purchase price must be a positive number.');
+      return;
+    }
+    if (isNaN(newOdo) || newOdo < 0) {
+      setFormError('Starting odometer must be a non-negative number.');
       return;
     }
     setLoadingAction(true);
     try {
       const res = await api.addVehicle({
-        registrationNumber: newReg,
+        registrationNumber: newReg.trim().toUpperCase(),
         categoryId: newCategory,
         isAC: newIsAC,
         purchasePrice: Number(newPrice),
         currentOdometer: Number(newOdo),
-        notes: newNotes,
+        notes: newNotes?.trim() || undefined,
       });
       if (res.success) {
         setShowAddModal(false);
@@ -448,6 +466,13 @@ export const FleetTab: React.FC<FleetTabProps> = ({
                 Decommission Asset from Fleet
               </h3>
             </div>
+
+            {condemnError && (
+              <div className="p-3 mb-4 bg-red-950/70 border border-red-500/50 text-red-200 text-xs font-mono flex items-center justify-between">
+                <span>⚠ {condemnError}</span>
+                <button type="button" onClick={() => setCondemnError('')} className="text-red-400 hover:text-white">✕</button>
+              </div>
+            )}
 
             <form onSubmit={handleCondemn} className="space-y-4 font-sans text-xs">
               <div>

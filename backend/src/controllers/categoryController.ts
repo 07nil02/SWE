@@ -47,9 +47,15 @@ export async function updateCategoryRates(req: Request, res: Response) {
       return res.status(400).json({ success: false, message: 'Base hourly and km rates are required' });
     }
 
+    const numHourly = Number(baseHourlyRate);
+    const numKm = Number(baseKmRate);
+    if (isNaN(numHourly) || isNaN(numKm) || numHourly <= 0 || numKm <= 0) {
+      return res.status(400).json({ success: false, message: 'Hourly rate and kilometer rate must be positive numbers' });
+    }
+
     const updated = await VehicleCategory.findByIdAndUpdate(
       id,
-      { baseHourlyRate: Number(baseHourlyRate), baseKmRate: Number(baseKmRate) },
+      { baseHourlyRate: numHourly, baseKmRate: numKm },
       { new: true }
     );
 

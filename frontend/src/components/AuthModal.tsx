@@ -32,12 +32,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !EMAIL_REGEX.test(cleanEmail)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
-    const res = await login(email, password);
+    const res = await login(cleanEmail, password);
     setLoading(false);
     if (res.success) {
       setSuccessMsg(res.message || 'Signed in successfully');
@@ -54,14 +67,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
+
+    if (!name || name.trim().length < 2) {
+      setError('Full name must be at least 2 characters');
+      return;
+    }
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !EMAIL_REGEX.test(cleanEmail)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (phone.trim() && cleanPhone.length < 7) {
+      setError('Contact phone number must have at least 7 digits');
+      return;
+    }
+
     setLoading(true);
     const res = await register({
-      name,
-      email,
+      name: name.trim(),
+      email: cleanEmail,
       password,
       role,
-      phone,
-      drivingLicense: license,
+      phone: phone.trim() || undefined,
+      drivingLicense: license?.trim() || undefined,
     });
     setLoading(false);
     if (res.success) {

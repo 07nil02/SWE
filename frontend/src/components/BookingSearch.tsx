@@ -24,9 +24,36 @@ export const BookingSearch: React.FC<BookingSearchProps> = ({ onSearch }) => {
   const [returnDate, setReturnDate] = useState(threeDaysLater);
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [acPreference, setAcPreference] = useState<'ANY' | 'AC' | 'NON_AC'>('ANY');
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setSearchError(null);
+
+    const pMs = new Date(pickupDate).getTime();
+    const rMs = new Date(returnDate).getTime();
+
+    if (isNaN(pMs) || isNaN(rMs)) {
+      setSearchError('Please specify valid departure and return dates/times.');
+      return;
+    }
+
+    if (pMs < Date.now() - 10 * 60 * 1000) {
+      setSearchError('Departure date cannot be in the past.');
+      return;
+    }
+
+    if (rMs <= pMs) {
+      setSearchError('Return date must be strictly after departure date.');
+      return;
+    }
+
+    const durationHours = (rMs - pMs) / (1000 * 60 * 60);
+    if (durationHours < 4) {
+      setSearchError('Rental duration must be at least 4 hours (statutory minimum rental).');
+      return;
+    }
+
     onSearch({
       pickupLocation,
       returnLocation: sameReturnLocation ? pickupLocation : returnLocation,
@@ -49,6 +76,21 @@ export const BookingSearch: React.FC<BookingSearchProps> = ({ onSearch }) => {
 
   return (
     <div className="w-full bg-charcoal-900/95 border border-stone-200/15 shadow-2xl backdrop-blur-md p-6 sm:p-8">
+      {searchError && (
+        <div className="mb-4 p-3 bg-red-950/60 border border-red-500/40 rounded text-red-200 text-xs font-mono flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span>⚠</span>
+            <span>{searchError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSearchError(null)}
+            className="text-red-300 hover:text-white font-mono text-xs ml-4"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <form onSubmit={handleSubmit}>
         {/* Top Toggle Strip */}
         <div className="flex flex-wrap items-center justify-between border-b border-stone-200/10 pb-4 mb-6 text-xs font-mono">

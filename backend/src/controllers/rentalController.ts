@@ -102,17 +102,48 @@ export async function createBooking(req: AuthRequest, res: Response) {
       notes,
     } = req.body;
 
-    if (!customerName || !customerPhone || !vehicleId || !expectedReturnDate || advanceAmount == null) {
+    if (!customerName || typeof customerName !== 'string' || customerName.trim().length < 2) {
       return res.status(400).json({
         success: false,
-        message: 'Customer name, phone, vehicle, expected return date, and advance amount are required',
+        message: 'Customer name is required and must be at least 2 characters',
       });
     }
 
-    if (Number(advanceAmount) <= 0) {
+    const digitsOnly = String(customerPhone || '').replace(/\D/g, '');
+    if (!customerPhone || digitsOnly.length < 7) {
       return res.status(400).json({
         success: false,
-        message: 'Advance deposit must be greater than zero',
+        message: 'A valid customer phone number with at least 7 digits is required',
+      });
+    }
+
+    if (!vehicleId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vehicle selection is required',
+      });
+    }
+
+    const parsedReturnDate = new Date(expectedReturnDate);
+    if (!expectedReturnDate || isNaN(parsedReturnDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid expected return date and time is required',
+      });
+    }
+
+    if (parsedReturnDate.getTime() <= Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Expected return date must be in the future',
+      });
+    }
+
+    const numAdvance = Number(advanceAmount);
+    if (advanceAmount == null || isNaN(numAdvance) || numAdvance <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Advance deposit must be a valid positive amount',
       });
     }
 
@@ -125,6 +156,18 @@ export async function createBooking(req: AuthRequest, res: Response) {
       return res.status(400).json({
         success: false,
         message: `Vehicle is not available for booking. Current state: ${vehicle.status}`,
+      });
+    }
+
+    // Check for conflicting active booking on this vehicle
+    const existingActiveBooking = await RentalBooking.findOne({
+      vehicle: vehicle._id,
+      status: { $in: ['BOOKED', 'DISPATCHED'] },
+    });
+    if (existingActiveBooking) {
+      return res.status(400).json({
+        success: false,
+        message: `Vehicle ${vehicle.registrationNumber} already has an active reservation (${existingActiveBooking.bookingNumber})`,
       });
     }
 
@@ -200,7 +243,17 @@ export async function dispatchVehicle(req: Request, res: Response) {
     }
 
     const dispatchTime = dispatchedAt ? new Date(dispatchedAt) : new Date();
+    if (isNaN(dispatchTime.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid dispatch time format' });
+    }
+    if (dispatchTime.getTime() < booking.bookingDate.getTime() - 60000) {
+      return res.status(400).json({ success: false, message: 'Dispatch time cannot be earlier than booking date' });
+    }
+
     const meter = startOdometer != null ? Number(startOdometer) : vehicle.currentOdometer;
+    if (isNaN(meter) || meter < 0) {
+      return res.status(400).json({ success: false, message: 'Start odometer reading must be a valid positive number' });
+    }
 
     if (meter < vehicle.currentOdometer) {
       return res.status(400).json({
@@ -251,6 +304,10 @@ export async function returnAndSettleVehicle(req: Request, res: Response) {
     }
 
     const returnTime = actualReturnDate ? new Date(actualReturnDate) : new Date();
+    if (isNaN(returnTime.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid return time format' });
+    }
+
     const startTime = booking.dispatchedAt || booking.bookingDate;
 
     if (returnTime.getTime() < startTime.getTime()) {
@@ -260,10 +317,17 @@ export async function returnAndSettleVehicle(req: Request, res: Response) {
       });
     }
 
+    if (endOdometer == null || isNaN(Number(endOdometer))) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid numeric end odometer reading is required',
+      });
+    }
+
     const finalMeter = Number(endOdometer);
     const startMeter = booking.startOdometer ?? vehicle.currentOdometer;
 
-    if (isNaN(finalMeter) || finalMeter < startMeter) {
+    if (finalMeter < 0 || finalMeter < startMeter) {
       return res.status(400).json({
         success: false,
         message: `End mile-meter reading (${finalMeter}) cannot be less than starting reading (${startMeter})`,
@@ -277,7 +341,9 @@ export async function returnAndSettleVehicle(req: Request, res: Response) {
     const durationHours = Math.max(0.1, Number(rawHours.toFixed(1)));
 
     // Night halts calculation: user input takes precedence; default calculated by days if not provided
-    const halts = nightHalts != null ? Math.max(0, Number(nightHalts)) : Math.floor(rawHours / 24);
+    const halts = (nightHalts != null && !isNaN(Number(nightHalts)))
+      ? Math.max(0, Math.floor(Number(nightHalts)))
+      : Math.floor(rawHours / 24);
 
     const category = await VehicleCategory.findById(vehicle.category);
     if (!category) {

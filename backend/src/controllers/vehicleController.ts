@@ -72,8 +72,22 @@ export async function addVehicle(req: Request, res: Response) {
   try {
     const { registrationNumber, categoryId, isAC, purchasePrice, currentOdometer, notes } = req.body;
 
-    if (!registrationNumber || !categoryId || purchasePrice == null) {
-      return res.status(400).json({ success: false, message: 'Registration number, category, and purchase price are required' });
+    if (!registrationNumber || typeof registrationNumber !== 'string' || registrationNumber.trim().length < 3) {
+      return res.status(400).json({ success: false, message: 'A valid registration number (at least 3 characters) is required' });
+    }
+
+    if (!categoryId) {
+      return res.status(400).json({ success: false, message: 'Category is required' });
+    }
+
+    const numPrice = Number(purchasePrice);
+    if (purchasePrice == null || isNaN(numPrice) || numPrice <= 0) {
+      return res.status(400).json({ success: false, message: 'Purchase price must be a positive number' });
+    }
+
+    const numOdo = currentOdometer != null ? Number(currentOdometer) : 0;
+    if (isNaN(numOdo) || numOdo < 0) {
+      return res.status(400).json({ success: false, message: 'Current odometer must be a non-negative number' });
     }
 
     const category = await VehicleCategory.findById(categoryId);
@@ -91,10 +105,10 @@ export async function addVehicle(req: Request, res: Response) {
       category: category._id,
       categoryName: category.name,
       isAC: Boolean(isAC),
-      purchasePrice: Number(purchasePrice),
-      currentOdometer: Number(currentOdometer) || 0,
+      purchasePrice: numPrice,
+      currentOdometer: numOdo,
       status: 'AVAILABLE',
-      notes,
+      notes: typeof notes === 'string' ? notes.trim() : undefined,
     });
 
     res.status(201).json({ success: true, data: vehicle, message: 'New vehicle acquired and added to fleet!' });
@@ -135,8 +149,21 @@ export async function updateVehicleStatus(req: Request, res: Response) {
       });
     }
 
+    if (status === 'UNDER_REPAIR') {
+      const activeBooking = await RentalBooking.findOne({
+        vehicle: vehicle._id,
+        status: { $in: ['BOOKED', 'DISPATCHED'] },
+      });
+      if (activeBooking) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot place vehicle under repair while it has an active or pending reservation!',
+        });
+      }
+    }
+
     vehicle.status = status;
-    if (notes) vehicle.notes = notes;
+    if (notes && typeof notes === 'string') vehicle.notes = notes.trim();
     await vehicle.save();
 
     res.json({ success: true, data: vehicle, message: `Vehicle status changed to ${status}` });
@@ -155,6 +182,13 @@ export async function condemnVehicle(req: Request, res: Response) {
       return res.status(404).json({ success: false, message: 'Vehicle not found' });
     }
 
+    if (vehicle.status === 'CONDEMNED_SOLD') {
+      return res.status(400).json({
+        success: false,
+        message: 'Vehicle is already condemned and sold off.',
+      });
+    }
+
     if (vehicle.status === 'RENTED_OUT') {
       return res.status(400).json({
         success: false,
@@ -162,10 +196,29 @@ export async function condemnVehicle(req: Request, res: Response) {
       });
     }
 
+    const activeBooking = await RentalBooking.findOne({
+      vehicle: vehicle._id,
+      status: { $in: ['BOOKED', 'DISPATCHED'] },
+    });
+    if (activeBooking) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot condemn a vehicle with an active or pending reservation!',
+      });
+    }
+
+    const numSalvage = Number(salvageValue);
+    if (salvageValue == null || isNaN(numSalvage) || numSalvage < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Salvage value must be a valid non-negative number',
+      });
+    }
+
     vehicle.status = 'CONDEMNED_SOLD';
-    vehicle.salvageValue = Number(salvageValue) || 0;
+    vehicle.salvageValue = numSalvage;
     vehicle.condemnedDate = new Date();
-    if (notes) vehicle.notes = notes;
+    if (notes && typeof notes === 'string') vehicle.notes = notes.trim();
     await vehicle.save();
 
     res.json({
