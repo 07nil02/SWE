@@ -5,6 +5,7 @@ export type SettlementType = 'REFUND' | 'ADDITIONAL_PAYMENT' | 'EXACT';
 
 export interface IRentalBooking extends Document {
   bookingNumber: string;
+  user?: Types.ObjectId;
   customerName: string;
   customerPhone: string;
   customerLicense?: string;
@@ -40,6 +41,7 @@ export interface IRentalBooking extends Document {
 const RentalBookingSchema = new Schema<IRentalBooking>(
   {
     bookingNumber: { type: String, required: true, unique: true, index: true },
+    user: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     customerName: { type: String, required: true, trim: true },
     customerPhone: { type: String, required: true, trim: true },
     customerLicense: { type: String, trim: true },

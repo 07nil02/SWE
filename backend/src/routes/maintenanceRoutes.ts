@@ -5,8 +5,12 @@ import {
   getFuelLogs,
   createFuelLog,
 } from '../controllers/maintenanceController.js';
+import { authenticate, requireRole } from '../middleware/authMiddleware.js';
 
 const router = Router();
+
+// Admin-only maintenance and fuel logging
+router.use(authenticate, requireRole(['ADMIN']));
 
 router.get('/maintenance', getMaintenanceLogs);
 router.post('/maintenance', createMaintenanceLog);

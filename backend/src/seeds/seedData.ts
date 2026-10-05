@@ -1,3 +1,4 @@
+import { User } from '../models/User.js';
 import { VehicleCategory } from '../models/VehicleCategory.js';
 import { Vehicle } from '../models/Vehicle.js';
 import { RentalBooking } from '../models/RentalBooking.js';
@@ -6,6 +7,32 @@ import { FuelLog } from '../models/FuelLog.js';
 import { calculateRentalCharges } from '../services/pricingService.js';
 
 export async function seedDatabase(force: boolean = false) {
+  // Always ensure default admin and customer accounts exist
+  const existingAdmin = await User.findOne({ email: 'admin@velocefleet.com' });
+  if (!existingAdmin) {
+    await User.create({
+      name: 'Fleet Dispatcher Admin',
+      email: 'admin@velocefleet.com',
+      password: 'admin123',
+      role: 'ADMIN',
+      phone: '+91 99000 11000',
+    });
+    console.log('[Seed] Default Admin account created: admin@velocefleet.com / admin123');
+  }
+
+  const existingCustomer = await User.findOne({ email: 'customer@velocefleet.com' });
+  if (!existingCustomer) {
+    await User.create({
+      name: 'Rajesh Sharma (Client)',
+      email: 'customer@velocefleet.com',
+      password: 'customer123',
+      role: 'CUSTOMER',
+      phone: '+91 98765 10001',
+      drivingLicense: 'DL-04202100889',
+    });
+    console.log('[Seed] Default Customer account created: customer@velocefleet.com / customer123');
+  }
+
   const existingCount = await VehicleCategory.countDocuments();
   if (force) {
     console.log('[Seed] Force re-seed active: resetting existing fleet collections...');
@@ -17,7 +44,7 @@ export async function seedDatabase(force: boolean = false) {
       FuelLog.deleteMany({}),
     ]);
   } else if (existingCount > 0) {
-    console.log(`[Seed] Database already contains ${existingCount} categories. Skipping re-seeding.`);
+    console.log(`[Seed] Database already contains ${existingCount} categories. Skipping fleet re-seeding.`);
     return;
   }
 

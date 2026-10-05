@@ -3,6 +3,34 @@ export const BASE_URL: string = rawEnvUrl
   ? (rawEnvUrl.endsWith('/api') ? rawEnvUrl : `${rawEnvUrl.replace(/\/$/, '')}/api`)
   : '/api';
 
+export type UserRole = 'CUSTOMER' | 'ADMIN';
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  phone?: string;
+  drivingLicense?: string;
+}
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem('veloce_auth_token');
+}
+
+export function setAuthToken(token: string | null): void {
+  if (token) {
+    localStorage.setItem('veloce_auth_token', token);
+  } else {
+    localStorage.removeItem('veloce_auth_token');
+  }
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export interface CategoryStat {
   _id: string;
   name: string;
@@ -69,6 +97,7 @@ export interface RentalBooking {
   settlementType?: 'REFUND' | 'ADDITIONAL_PAYMENT' | 'EXACT';
   settlementAmount?: number;
   status: 'BOOKED' | 'DISPATCHED' | 'RETURNED_SETTLED' | 'CANCELLED';
+  user?: string | AuthUser;
   notes?: string;
 }
 
@@ -138,6 +167,52 @@ export interface FleetAnalytics {
 }
 
 export const api = {
+  // Auth
+  async login(payload: { email: string; password: string }) {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  },
+
+  async register(payload: {
+    name: string;
+    email: string;
+    password: string;
+    role?: UserRole;
+    phone?: string;
+    drivingLicense?: string;
+  }) {
+    const res = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  },
+
+  async getMe(): Promise<AuthUser | null> {
+    const token = getAuthToken();
+    if (!token) return null;
+    const res = await fetch(`${BASE_URL}/auth/me`, {
+      headers: { ...authHeaders() },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data?.user || null;
+  },
+
+  async demoLogin(role: UserRole) {
+    const res = await fetch(`${BASE_URL}/auth/demo-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    });
+    return res.json();
+  },
+
   // Categories & Rates
   async getCategories(): Promise<CategoryStat[]> {
     const res = await fetch(`${BASE_URL}/categories`);
@@ -148,7 +223,7 @@ export const api = {
   async updateCategoryRates(id: string, baseHourlyRate: number, baseKmRate: number) {
     const res = await fetch(`${BASE_URL}/categories/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ baseHourlyRate, baseKmRate }),
     });
     return res.json();
@@ -177,7 +252,7 @@ export const api = {
   }) {
     const res = await fetch(`${BASE_URL}/vehicles`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(data),
     });
     return res.json();
@@ -186,7 +261,7 @@ export const api = {
   async updateVehicleStatus(id: string, status: 'AVAILABLE' | 'UNDER_REPAIR', notes?: string) {
     const res = await fetch(`${BASE_URL}/vehicles/${id}/status`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ status, notes }),
     });
     return res.json();
@@ -195,7 +270,7 @@ export const api = {
   async condemnVehicle(id: string, salvageValue: number, notes?: string) {
     const res = await fetch(`${BASE_URL}/vehicles/${id}/condemn`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ salvageValue, notes }),
     });
     return res.json();
@@ -204,9 +279,19 @@ export const api = {
   // Rentals
   async getRentals(status?: string): Promise<RentalBooking[]> {
     const query = status ? `?status=${status}` : '';
-    const res = await fetch(`${BASE_URL}/rentals${query}`);
+    const res = await fetch(`${BASE_URL}/rentals${query}`, {
+      headers: { ...authHeaders() },
+    });
     const json = await res.json();
-    return json.data;
+    return json.data || [];
+  },
+
+  async getMyBookings(): Promise<RentalBooking[]> {
+    const res = await fetch(`${BASE_URL}/rentals/my-bookings`, {
+      headers: { ...authHeaders() },
+    });
+    const json = await res.json();
+    return json.data || [];
   },
 
   async calculateQuote(payload: {
@@ -236,7 +321,7 @@ export const api = {
   }) {
     const res = await fetch(`${BASE_URL}/rentals/book`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
     });
     return res.json();
@@ -245,7 +330,7 @@ export const api = {
   async dispatchVehicle(id: string, payload: { dispatchedAt?: string; startOdometer?: number }) {
     const res = await fetch(`${BASE_URL}/rentals/${id}/dispatch`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
     });
     return res.json();
@@ -259,7 +344,7 @@ export const api = {
   }) {
     const res = await fetch(`${BASE_URL}/rentals/${id}/return`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
     });
     return res.json();
@@ -268,7 +353,9 @@ export const api = {
   // Maintenance & Fuel
   async getMaintenanceLogs(vehicleId?: string): Promise<MaintenanceLog[]> {
     const query = vehicleId ? `?vehicleId=${vehicleId}` : '';
-    const res = await fetch(`${BASE_URL}/maintenance${query}`);
+    const res = await fetch(`${BASE_URL}/maintenance${query}`, {
+      headers: { ...authHeaders() },
+    });
     const json = await res.json();
     return json.data;
   },
@@ -283,7 +370,7 @@ export const api = {
   }) {
     const res = await fetch(`${BASE_URL}/maintenance`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
     });
     return res.json();
@@ -291,7 +378,9 @@ export const api = {
 
   async getFuelLogs(vehicleId?: string): Promise<FuelLog[]> {
     const query = vehicleId ? `?vehicleId=${vehicleId}` : '';
-    const res = await fetch(`${BASE_URL}/fuel${query}`);
+    const res = await fetch(`${BASE_URL}/fuel${query}`, {
+      headers: { ...authHeaders() },
+    });
     const json = await res.json();
     return json.data;
   },
@@ -304,16 +393,19 @@ export const api = {
   }) {
     const res = await fetch(`${BASE_URL}/fuel`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
     });
     return res.json();
   },
 
   // Analytics
-  async getAnalytics(): Promise<FleetAnalytics> {
-    const res = await fetch(`${BASE_URL}/analytics/fleet-stats`);
+  async getAnalytics(): Promise<FleetAnalytics | null> {
+    const res = await fetch(`${BASE_URL}/analytics/fleet-stats`, {
+      headers: { ...authHeaders() },
+    });
     const json = await res.json();
-    return json.data;
+    return json.data || null;
   },
 };
+

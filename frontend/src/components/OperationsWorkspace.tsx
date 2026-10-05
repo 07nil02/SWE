@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Vehicle, CategoryStat, RentalBooking, FleetAnalytics, api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 interface OperationsWorkspaceProps {
   vehicles: Vehicle[];
@@ -18,6 +19,7 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
   onRefresh,
   onClose,
 }) => {
+  const { isAdmin, demoLogin } = useAuth();
   const [activeTab, setActiveTab] = useState<'manifest' | 'inventory' | 'workshop' | 'analytics'>('manifest');
 
   // Manifest Action Modals
@@ -187,6 +189,45 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
       setActionLoading(false);
     }
   };
+
+  if (!isAdmin) {
+    return (
+      <div className="fixed inset-0 z-50 bg-charcoal-950/90 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="bg-[#0e1014] text-neutral-200 max-w-lg w-full border border-amber-500/30 rounded-2xl shadow-2xl p-8 text-center space-y-6">
+          <div className="w-16 h-16 mx-auto rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-2xl font-mono">
+            🛡
+          </div>
+          <div>
+            <div className="text-[10px] font-mono tracking-widest text-[#c5a880] uppercase">
+              Access Control &bull; Restricted Boundary
+            </div>
+            <h2 className="text-xl font-serif text-white mt-1">Fleet Operations Desk Restricted</h2>
+            <p className="text-xs text-neutral-400 mt-3 leading-relaxed">
+              Administrative operations (dispatching vehicles, odometer return settlements, purchasing fleet inventory, condemning assets, logging workshop work orders, and viewing financial BI) require <strong>Fleet Operations / Admin</strong> credentials.
+            </p>
+          </div>
+
+          <div className="pt-2 space-y-3">
+            <button
+              onClick={async () => {
+                await demoLogin('ADMIN');
+                onRefresh();
+              }}
+              className="w-full py-3 bg-[#c5a880] hover:bg-[#d8be99] text-black font-semibold text-xs tracking-wider uppercase rounded-lg transition shadow-lg"
+            >
+              ⚡ Switch to Fleet Admin (1-Click Demo)
+            </button>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 border border-white/10 hover:border-white/20 text-neutral-300 text-xs font-mono tracking-wider uppercase rounded-lg transition"
+            >
+              Return to Customer View
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-charcoal-950/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto">

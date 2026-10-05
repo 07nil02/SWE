@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { FleetSection } from './components/FleetSection';
@@ -9,9 +10,13 @@ import { Footer } from './components/Footer';
 import { VehicleDetailModal } from './components/VehicleDetailModal';
 import { BookingFlowModal } from './components/BookingFlowModal';
 import { OperationsWorkspace } from './components/OperationsWorkspace';
-import { api, Vehicle, CategoryStat, RentalBooking, FleetAnalytics, BASE_URL } from './api/client';
+import { CustomerPortalModal } from './components/CustomerPortalModal';
+import { AuthModal } from './components/AuthModal';
+import { api, Vehicle, CategoryStat, RentalBooking, FleetAnalytics, UserRole, BASE_URL } from './api/client';
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { isAdmin, isAuthenticated } = useAuth();
+
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,11 +25,15 @@ export const App: React.FC = () => {
   const [rentals, setRentals] = useState<RentalBooking[]>([]);
   const [analytics, setAnalytics] = useState<FleetAnalytics | null>(null);
 
-  // Modals & Drawers
+  // Modals & Portals
   const [detailVehicle, setDetailVehicle] = useState<Vehicle | null>(null);
   const [isBookingOpen, setIsBookingOpen] = useState<boolean>(false);
   const [bookingVehicle, setBookingVehicle] = useState<Vehicle | null>(null);
   const [isOperationsOpen, setIsOperationsOpen] = useState<boolean>(false);
+  const [isCustomerPortalOpen, setIsCustomerPortalOpen] = useState<boolean>(false);
+  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
+  const [authDefaultTab, setAuthDefaultTab] = useState<'login' | 'register'>('login');
+  const [authDefaultRole, setAuthDefaultRole] = useState<UserRole>('CUSTOMER');
 
   // Toast Notification
   const [notification, setNotification] = useState<string | null>(null);
@@ -40,16 +49,28 @@ export const App: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [cats, vehs, rents, stats] = await Promise.all([
+
+      // Public data: Categories and Vehicles
+      const [cats, vehs] = await Promise.all([
         api.getCategories(),
         api.getVehicles(),
-        api.getRentals(),
-        api.getAnalytics(),
       ]);
-      setCategories(cats);
-      setVehicles(vehs);
-      setRentals(rents);
-      setAnalytics(stats);
+      setCategories(cats || []);
+      setVehicles(vehs || []);
+
+      // Administrative data: only accessible when authenticated as ADMIN
+      if (isAdmin) {
+        try {
+          const [rents, stats] = await Promise.all([
+            api.getRentals(),
+            api.getAnalytics(),
+          ]);
+          setRentals(rents || []);
+          setAnalytics(stats);
+        } catch {
+          // Non-fatal if ops endpoints are restricted
+        }
+      }
     } catch (err) {
       console.error('Failed to load application data:', err);
       const isLocal = BASE_URL.includes('localhost') || BASE_URL === '/api';
@@ -65,7 +86,7 @@ export const App: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     loadData();
@@ -88,7 +109,6 @@ export const App: React.FC = () => {
   };
 
   const handleHeroSearch = (criteria: any) => {
-    // Scroll down to fleet section or open booking flow directly
     const targetCat = criteria.acPreferred ? 'Maruti Esteem' : undefined;
     const matchedVehicle = targetCat
       ? vehicles.find((v) => v.categoryName === targetCat && v.status === 'AVAILABLE')
@@ -96,6 +116,25 @@ export const App: React.FC = () => {
 
     setBookingVehicle(matchedVehicle || null);
     setIsBookingOpen(true);
+  };
+
+  const handleOpenAuth = (tab: 'login' | 'register' = 'login', role: UserRole = 'CUSTOMER') => {
+    setAuthDefaultTab(tab);
+    setAuthDefaultRole(role);
+    setIsAuthOpen(true);
+  };
+
+  const handleOpenCustomerPortal = () => {
+    if (!isAuthenticated) {
+      handleOpenAuth('login', 'CUSTOMER');
+      showNotification('Please sign in or select Private Client access to view your reservations.');
+    } else {
+      setIsCustomerPortalOpen(true);
+    }
+  };
+
+  const handleOpenOperations = () => {
+    setIsOperationsOpen(true);
   };
 
   const detailCategory = detailVehicle
@@ -130,15 +169,15 @@ export const App: React.FC = () => {
       {/* Global Executive Masthead Navigation */}
       <Navbar
         onOpenBooking={() => handleOpenBooking()}
-        onOpenOperations={() => setIsOperationsOpen(true)}
+        onOpenOperations={handleOpenOperations}
+        onOpenCustomerPortal={handleOpenCustomerPortal}
+        onOpenAuth={() => handleOpenAuth()}
         onNavigateSection={handleNavigateSection}
         kpis={analytics?.kpis}
       />
 
       {/* Cinematic Automotive Hero Section */}
-      <Hero
-        onSearch={handleHeroSearch}
-      />
+      <Hero onSearch={handleHeroSearch} />
 
       {/* Main Vehicle Catalogue Grid */}
       <main className="flex-1 w-full">
@@ -170,7 +209,7 @@ export const App: React.FC = () => {
       {/* Substantial Dark Automotive Footer */}
       <Footer
         onOpenBooking={() => handleOpenBooking()}
-        onOpenOperations={() => setIsOperationsOpen(true)}
+        onOpenOperations={handleOpenOperations}
         onScrollToSection={handleNavigateSection}
       />
 
@@ -202,7 +241,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Drawer / Full Modal 3: Fleet Dispatch & Accounting Operations Workspace */}
+      {/* Modal 3: Fleet Dispatch & Accounting Operations Workspace (Admin Access Controlled) */}
       {isOperationsOpen && (
         <OperationsWorkspace
           vehicles={vehicles}
@@ -213,7 +252,37 @@ export const App: React.FC = () => {
           onClose={() => setIsOperationsOpen(false)}
         />
       )}
+
+      {/* Modal 4: Customer Portal - My Reservations & Settlement Ledger */}
+      {isCustomerPortalOpen && (
+        <CustomerPortalModal
+          isOpen={isCustomerPortalOpen}
+          onClose={() => setIsCustomerPortalOpen(false)}
+          onBrowseFleet={() => handleNavigateSection('fleet')}
+        />
+      )}
+
+      {/* Modal 5: Authentication & Access Control (Sign In, Register & 1-Click Evaluation) */}
+      {isAuthOpen && (
+        <AuthModal
+          isOpen={isAuthOpen}
+          onClose={() => {
+            setIsAuthOpen(false);
+            loadData();
+          }}
+          defaultTab={authDefaultTab}
+          defaultRole={authDefaultRole}
+        />
+      )}
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 };
 

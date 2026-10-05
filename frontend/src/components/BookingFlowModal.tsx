@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Vehicle, CategoryStat, api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 interface BookingFlowModalProps {
   initialVehicle?: Vehicle | null;
@@ -16,6 +17,7 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { user } = useAuth();
   const [step, setStep] = useState<number>(initialVehicle ? 3 : 1);
 
   // Form State
@@ -30,11 +32,19 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
     initialVehicle?._id || vehicles.find((v) => v.status === 'AVAILABLE')?._id || ''
   );
 
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerLicense, setCustomerLicense] = useState('');
+  const [customerName, setCustomerName] = useState(user?.name || '');
+  const [customerPhone, setCustomerPhone] = useState(user?.phone || '');
+  const [customerLicense, setCustomerLicense] = useState(user?.drivingLicense || '');
   const [advanceAmount, setAdvanceAmount] = useState<number>(2500);
   const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      if (!customerName && user.name) setCustomerName(user.name);
+      if (!customerPhone && user.phone) setCustomerPhone(user.phone);
+      if (!customerLicense && user.drivingLicense) setCustomerLicense(user.drivingLicense);
+    }
+  }, [user]);
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -284,6 +294,13 @@ export const BookingFlowModal: React.FC<BookingFlowModalProps> = ({
                     An advance deposit is deposited upon booking. Balance is refunded or paid on return.
                   </p>
                 </div>
+
+                {user && (
+                  <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 text-amber-900 text-[11px] font-mono flex items-center justify-between rounded-sm">
+                    <span>✦ Client Profile: <strong>{user.name}</strong> ({user.email})</span>
+                    <span className="text-[10px] text-amber-700 font-semibold uppercase">Auto-Linked to Ledger</span>
+                  </div>
+                )}
 
                 <div className="space-y-4 font-sans text-xs">
                   <div>

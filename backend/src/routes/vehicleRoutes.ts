@@ -6,13 +6,17 @@ import {
   updateVehicleStatus,
   condemnVehicle,
 } from '../controllers/vehicleController.js';
+import { authenticate, requireRole } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
+// Public catalogue inspection
 router.get('/', getVehicles);
-router.post('/', addVehicle);
 router.get('/:id', getVehicleById);
-router.patch('/:id/status', updateVehicleStatus);
-router.post('/:id/condemn', condemnVehicle);
+
+// Admin-only fleet inventory modifications
+router.post('/', authenticate, requireRole(['ADMIN']), addVehicle);
+router.patch('/:id/status', authenticate, requireRole(['ADMIN']), updateVehicleStatus);
+router.post('/:id/condemn', authenticate, requireRole(['ADMIN']), condemnVehicle);
 
 export default router;

@@ -3,6 +3,7 @@ dotenv.config();
 
 import { connectDB, disconnectDB } from '../config/db.js';
 import { seedDatabase } from './seedData.js';
+import { User } from '../models/User.js';
 import { VehicleCategory } from '../models/VehicleCategory.js';
 import { Vehicle } from '../models/Vehicle.js';
 import { RentalBooking } from '../models/RentalBooking.js';
@@ -20,7 +21,8 @@ async function main() {
     await seedDatabase(force);
 
     // Detailed verification report
-    const [categories, vehicles, rentals, maintenance, fuel] = await Promise.all([
+    const [users, categories, vehicles, rentals, maintenance, fuel] = await Promise.all([
+      User.find().lean(),
       VehicleCategory.find().lean(),
       Vehicle.find().lean(),
       RentalBooking.find().lean(),
@@ -29,6 +31,10 @@ async function main() {
     ]);
 
     console.log('\n================ FLEET DATABASE SEED REPORT ================');
+    console.log(`✓ Access Credentials: ${users.length} accounts configured`);
+    users.forEach((u) => {
+      console.log(`   • [${u.role.padEnd(8)}] ${u.email.padEnd(26)} | Name: ${u.name}`);
+    });
     console.log(`✓ Vehicle Categories: ${categories.length}`);
     categories.forEach((cat) => {
       console.log(`   • ${cat.name.padEnd(16)} | Base Rate: ₹${cat.baseHourlyRate}/hr, ₹${cat.baseKmRate}/km | Capacity: ${cat.seatingCapacity} seats`);

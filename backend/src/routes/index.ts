@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import authRoutes from './authRoutes.js';
 import categoryRoutes from './categoryRoutes.js';
 import vehicleRoutes from './vehicleRoutes.js';
 import rentalRoutes from './rentalRoutes.js';
@@ -7,6 +8,7 @@ import analyticsRoutes from './analyticsRoutes.js';
 
 const apiRouter = Router();
 
+apiRouter.use('/auth', authRoutes);
 apiRouter.use('/categories', categoryRoutes);
 apiRouter.use('/vehicles', vehicleRoutes);
 apiRouter.use('/rentals', rentalRoutes);

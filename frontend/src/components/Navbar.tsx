@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
   onOpenBooking: () => void;
   onOpenOperations: () => void;
+  onOpenCustomerPortal: () => void;
+  onOpenAuth: () => void;
   onNavigateSection: (sectionId: string) => void;
   kpis?: {
     totalVehicles: number;
@@ -15,10 +18,13 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenBooking,
   onOpenOperations,
+  onOpenCustomerPortal,
+  onOpenAuth,
   onNavigateSection,
   kpis,
 }) => {
   const [scrolled, setScrolled] = useState(false);
+  const { user, isAdmin, isCustomer, isAuthenticated, logout } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -84,20 +90,70 @@ export const Navbar: React.FC<NavbarProps> = ({
         </nav>
 
         {/* Right Action Controls */}
-        <div className="flex items-center space-x-4">
-          {/* Operations / Dispatcher Mode Button */}
-          <button
-            onClick={onOpenOperations}
-            className="hidden sm:inline-flex items-center space-x-2 px-3 py-1.5 border border-stone-200/20 text-stone-300 hover:text-stone-50 hover:border-stone-200/40 text-xs font-mono tracking-wider uppercase transition-colors"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span>Fleet Ops ({kpis?.availableCount ?? 49} Ready)</span>
-          </button>
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          {/* Role-Based Launcher */}
+          {isAdmin ? (
+            /* Admin only: Fleet Ops */
+            <button
+              onClick={onOpenOperations}
+              className="inline-flex items-center space-x-2 px-3 py-1.5 border border-[#c5a880]/40 bg-[#c5a880]/10 text-[#f5e6d3] hover:border-[#c5a880] text-xs font-mono tracking-wider uppercase transition-colors rounded-sm"
+              title="Open Executive Fleet Operations Workspace"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Fleet Ops ({kpis?.availableCount ?? 49} Ready)</span>
+            </button>
+          ) : isCustomer ? (
+            /* Customer only: My Reservations */
+            <button
+              onClick={onOpenCustomerPortal}
+              className="inline-flex items-center space-x-2 px-3 py-1.5 border border-emerald-500/40 bg-emerald-950/30 text-emerald-300 hover:border-emerald-400 text-xs font-mono tracking-wider uppercase transition-colors rounded-sm"
+              title="View your reservations and settlement receipts"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>My Reservations</span>
+            </button>
+          ) : (
+            /* Guest / Unauthenticated: Show sign in / quick evaluation */
+            <button
+              onClick={onOpenAuth}
+              className="hidden sm:inline-flex items-center space-x-2 px-3 py-1.5 border border-stone-200/20 text-stone-300 hover:text-stone-50 hover:border-stone-200/40 text-xs font-mono tracking-wider uppercase transition-colors"
+            >
+              <span>🔑 Sign In / Demo</span>
+            </button>
+          )}
 
-          {/* Primary Booking Trigger */}
+          {/* User profile / Auth badge */}
+          {isAuthenticated ? (
+            <div className="flex items-center space-x-2 bg-white/5 border border-white/10 rounded px-2.5 py-1">
+              <div className="text-left">
+                <div className="text-[11px] font-sans font-medium text-white truncate max-w-[100px] sm:max-w-[130px]">
+                  {user?.name}
+                </div>
+                <div className="text-[9px] font-mono tracking-wider text-[#c5a880] uppercase">
+                  {user?.role}
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                title="Sign out of account"
+                className="text-[11px] font-mono text-neutral-400 hover:text-red-400 px-1.5 py-0.5 ml-1 border-l border-white/10 transition-colors"
+              >
+                Exit
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onOpenAuth}
+              className="sm:hidden px-2.5 py-1.5 border border-stone-200/20 text-stone-300 text-xs font-mono uppercase"
+            >
+              Sign In
+            </button>
+          )}
+
+          {/* Primary Booking Trigger (Customer / Public action) */}
           <button
             onClick={onOpenBooking}
-            className="px-5 py-2 border border-champagne-400 bg-champagne-400/15 hover:bg-champagne-400 text-champagne-300 hover:text-charcoal-950 text-xs font-mono tracking-widest uppercase transition-all duration-200"
+            className="px-4 sm:px-5 py-2 border border-champagne-400 bg-champagne-400/15 hover:bg-champagne-400 text-champagne-300 hover:text-charcoal-950 text-xs font-mono tracking-widest uppercase transition-all duration-200"
           >
             Reserve Vehicle
           </button>
@@ -106,3 +162,4 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   );
 };
+

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { AuthRequest } from '../middleware/authMiddleware.js';
 import { RentalBooking } from '../models/RentalBooking.js';
 import { Vehicle } from '../models/Vehicle.js';
 import { VehicleCategory } from '../models/VehicleCategory.js';
@@ -67,7 +68,29 @@ export async function calculateQuote(req: Request, res: Response) {
   }
 }
 
-export async function createBooking(req: Request, res: Response) {
+export async function getMyBookings(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Authentication required.' });
+      return;
+    }
+
+    const conditions: any[] = [{ user: req.user.id }];
+    if (req.user.name) {
+      conditions.push({ customerName: { $regex: `^${req.user.name}$`, $options: 'i' } });
+    }
+    if (req.user.email) {
+      conditions.push({ customerPhone: req.user.email });
+    }
+
+    const bookings = await RentalBooking.find({ $or: conditions }).sort({ createdAt: -1 });
+    res.json({ success: true, count: bookings.length, data: bookings });
+  } catch (error) {
+    res.status(500).json({ success: false, message: (error as Error).message });
+  }
+}
+
+export async function createBooking(req: AuthRequest, res: Response) {
   try {
     const {
       customerName,
@@ -119,9 +142,10 @@ export async function createBooking(req: Request, res: Response) {
 
     const booking = await RentalBooking.create({
       bookingNumber,
+      user: req.user?.id ? req.user.id : undefined,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
-      customerLicense: customerLicense?.trim(),
+      customerLicense: customerLicense?.trim() || req.user?.drivingLicense,
       vehicle: vehicle._id,
       vehicleReg: vehicle.registrationNumber,
       categoryName: vehicle.categoryName,
