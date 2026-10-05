@@ -35,10 +35,29 @@ npm run dev:frontend
 Open your browser at **`http://localhost:5173`**.
 
 ### Running Automated Test Suite
-Run the 18 automated unit and integration tests:
+Run the 29 automated unit and integration tests:
 ```bash
 npm run test
 ```
+
+---
+
+## 🔐 Two-Tier Role-Based Access Control (RBAC)
+
+The system enforces two segregated operational tiers:
+* **Private Clients / Customers**:
+  * Browse the fleet catalogue with climate/category filters.
+  * Real-time dual-formula tariff simulator with statutory 4-hour floor.
+  * Book available vehicles with advance deposits.
+  * Dedicated **Client Portal** (`CustomerPortalModal`) to track personal booking statuses and print official settlement receipts.
+* **Fleet Operations / Administrators**:
+  * Dedicated **Operations Workspace** (`OperationsWorkspace`) restricted via `isAdmin` guardrails (HTTP 403 enforcement).
+  * Authorize vehicle departures with starting odometer verification.
+  * Process vehicle returns with statutory billing calculations (refunds / balance due).
+  * Enrol/acquire new vehicles and decommission/condemn assets with salvage tracking.
+  * Record workshop maintenance work orders and fuel dispensation logs.
+  * Adjust category master tariffs and inspect business intelligence (BI) profitability.
+* **1-Click Evaluation Access**: Instant switching between `ADMIN` and `CUSTOMER` roles in the authentication modal for seamless testing.
 
 ---
 
@@ -57,7 +76,7 @@ The system manages the company's initial fleet of **52 vehicles**:
 
 1. **Category Rates**: Base hourly rate and base kilometer rate per category.
 2. **AC Surcharge**: AC vehicles in any category are charged **50% more** ($1.5\times$) on both hourly and km tariffs.
-3. **Minimum Rental Duration**: Minimum **4 hours** rental duration.
+3. **Minimum Rental Duration**: Mandatory statutory **4 hours** rental duration floor.
 4. **Billing Formula**:
    $$\text{Gross Charge} = \max(\text{Hours Used} \times \text{Hourly Rate}, \text{Kilometers Run} \times \text{Km Rate})$$
    $$\text{Usage Charge} = \max(\text{Gross Charge}, 4 \times \text{Hourly Rate})$$
@@ -77,8 +96,8 @@ The system manages the company's initial fleet of **52 vehicles**:
 
 ## 🛠️ Tech Stack
 
-- **Backend**: TypeScript, Node.js, Express.js, MongoDB, Mongoose, Vitest, Supertest, mongodb-memory-server.
-- **Frontend**: TypeScript, React 19, Vite, Tailwind CSS, Plus Jakarta Sans typography.
+- **Backend**: TypeScript, Node.js, Express.js, MongoDB, Mongoose, JWT (`jsonwebtoken`), `bcryptjs`, Vitest, Supertest, `mongodb-memory-server`.
+- **Frontend**: TypeScript, React 19, Vite, Tailwind CSS, Playfair Display & JetBrains Mono typography.
 
 ---
 
@@ -88,27 +107,33 @@ The system manages the company's initial fleet of **52 vehicles**:
 ├── backend/
 │   ├── src/
 │   │   ├── config/             # DB connection with auto in-memory fallback
-│   │   ├── models/             # VehicleCategory, Vehicle, RentalBooking, MaintenanceLog, FuelLog
-│   │   ├── services/           # pricingService.ts (Core billing calculation)
-│   │   ├── controllers/        # Category, Vehicle, Rental, Maintenance, Analytics
+│   │   ├── middleware/         # authMiddleware.ts (JWT verification & requireRole)
+│   │   ├── models/             # User, VehicleCategory, Vehicle, RentalBooking, MaintenanceLog, FuelLog
+│   │   ├── services/           # pricingService.ts (Core billing calculation & NaN guards)
+│   │   ├── controllers/        # Auth, Category, Vehicle, Rental, Maintenance, Analytics
 │   │   ├── routes/             # REST API routes
-│   │   ├── seeds/              # Seed data for 52 vehicles & historical data
-│   │   ├── tests/              # Vitest unit & integration test suites
+│   │   ├── seeds/              # Seed data for 52 vehicles, default admin & customer
+│   │   ├── tests/              # Vitest unit & integration test suites (29 tests)
 │   │   ├── app.ts              # Express application factory
 │   │   └── server.ts           # Server bootstrap
 │   ├── package.json
 │   └── tsconfig.json
 ├── frontend/
 │   ├── src/
-│   │   ├── api/client.ts       # Fully typed API client
+│   │   ├── api/client.ts       # Fully typed API client with JWT bearer tokens
+│   │   ├── context/            # AuthContext.tsx (User state, login, register, demoLogin)
 │   │   ├── components/
-│   │   │   ├── Navbar.tsx             # Global navigation and real-time fleet chips
-│   │   │   ├── AnalyticsTab.tsx       # Profitability, demand, repair, and fuel BI
-│   │   │   ├── FleetTab.tsx           # Vehicle inventory, acquire & condemn modals
-│   │   │   ├── RentalsTab.tsx         # Booking, dispatch, return & receipt modal
-│   │   │   ├── RatesEstimatorTab.tsx  # Dynamic math estimator & tariff editor
-│   │   │   └── MaintenanceTab.tsx     # Workshop repairs & fuel logs
-│   │   ├── App.tsx             # Root layout and state coordination
+│   │   │   ├── Navbar.tsx              # Executive nav, role switcher, fleet readiness
+│   │   │   ├── Hero.tsx                # Cinematic billboard
+│   │   │   ├── BookingSearch.tsx       # Date-validated route search bar
+│   │   │   ├── FleetSection.tsx        # Filterable catalogue grid
+│   │   │   ├── BookingFlowModal.tsx    # 5-step client reservation flow
+│   │   │   ├── OperationsWorkspace.tsx # Administrative dispatch, settlement, inventory & BI
+│   │   │   ├── CustomerPortalModal.tsx # Client reservations ledger & settlement vouchers
+│   │   │   ├── AuthModal.tsx           # Two-tier sign-in & registration with 1-click access
+│   │   │   ├── VehicleDetailModal.tsx  # Full vehicle specifications dossier
+│   │   │   └── HowItWorksSection.tsx   # Dual-metric tariff codex & live calculator
+│   │   ├── App.tsx             # Root layout & modal coordination
 │   │   └── main.tsx            # React 19 bootstrap
 │   ├── index.html
 │   ├── package.json
@@ -118,11 +143,15 @@ The system manages the company's initial fleet of **52 vehicles**:
 
 ---
 
-## 🧪 Edge Cases Covered
+## 🧪 Edge Cases & Illegal Values Handled
 
-1. **Short Trips (< 4 Hours)**: Automatically enforces 4-hour floor.
-2. **Dominant Rate Selection**: Automatically chooses whether KM or Duration yields higher charge.
-3. **Rollback Prevention**: Rejects return odometer readings less than dispatch odometer.
-4. **Advance vs Total Discrepancies**: Accurately computes refunds and additional payments.
+1. **Short Trips (< 4 Hours)**: Automatically enforces statutory 4-hour floor.
+2. **Dominant Rate Selection**: Automatically determines whether KM or Duration yields higher charge.
+3. **Mile-Meter Rollback Prevention**: Rejects return odometer readings less than starting dispatch odometer.
+4. **Advance Reconciliation**: Accurately computes refunds and additional payments without IEEE 754 precision artifacts.
 5. **Night Halt Billing**: Adds ₹150 flat per night halt regardless of vehicle category.
-6. **State Machine Integrity**: Rejects double dispatch or condemning an active vehicle.
+6. **State Machine Integrity**: Rejects double dispatch or condemning an active/booked vehicle.
+7. **Active Reservation Concurrency**: Prevents two customers from booking the same available car simultaneously before dispatch.
+8. **Input Type & NaN Shielding**: Rejects `NaN`, zero, and negative values on advance payments, purchase prices, repair costs, fuel liters, and category tariffs.
+9. **Credential & Contact Validation**: Enforces RFC-compliant email regex, minimum password length (6 chars), driver name length ($\ge 2$), and phone sanitization.
+10. **Temporal Validity**: Rejects past pickup dates and ensures expected return dates are strictly in the future and after pickup.
