@@ -41,17 +41,23 @@ export async function register(req: Request, res: Response): Promise<void> {
       role: user.role,
     });
 
+    const responsePayload = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone,
+      drivingLicense: user.drivingLicense,
+    };
+
     res.status(201).json({
       success: true,
       message: `Account registered successfully as ${user.role}.`,
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        drivingLicense: user.drivingLicense,
+      user: responsePayload,
+      data: {
+        token,
+        user: responsePayload,
       },
     });
   } catch (err) {
@@ -88,17 +94,23 @@ export async function login(req: Request, res: Response): Promise<void> {
       role: user.role,
     });
 
+    const userPayload = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone,
+      drivingLicense: user.drivingLicense,
+    };
+
     res.json({
       success: true,
       message: `Signed in successfully as ${user.role}.`,
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        drivingLicense: user.drivingLicense,
+      user: userPayload,
+      data: {
+        token,
+        user: userPayload,
       },
     });
   } catch (err) {
@@ -119,15 +131,20 @@ export async function getCurrentUser(req: AuthRequest, res: Response): Promise<v
       return;
     }
 
+    const userPayload = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone,
+      drivingLicense: user.drivingLicense,
+    };
+
     res.json({
       success: true,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        drivingLicense: user.drivingLicense,
+      user: userPayload,
+      data: {
+        user: userPayload,
       },
     });
   } catch (err) {
@@ -160,17 +177,23 @@ export async function demoLogin(req: Request, res: Response): Promise<void> {
       role: user.role,
     });
 
+    const userPayload = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone,
+      drivingLicense: user.drivingLicense,
+    };
+
     res.json({
       success: true,
       message: `Demo sign-in granted as ${user.role}.`,
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        drivingLicense: user.drivingLicense,
+      user: userPayload,
+      data: {
+        token,
+        user: userPayload,
       },
     });
   } catch (err) {

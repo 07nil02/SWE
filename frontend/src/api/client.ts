@@ -201,7 +201,7 @@ export const api = {
     });
     if (!res.ok) return null;
     const json = await res.json();
-    return json.data?.user || null;
+    return json.data?.user || json.user || null;
   },
 
   async demoLogin(role: UserRole) {

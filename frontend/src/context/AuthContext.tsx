@@ -58,11 +58,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     try {
       const res = await api.login({ email, password });
-      if (res.success && res.data) {
-        setAuthToken(res.data.token);
-        setTokenState(res.data.token);
-        setUser(res.data.user);
-        return { success: true };
+      const user = res.data?.user || res.user;
+      const token = res.data?.token || res.token;
+      if (res.success && user && token) {
+        setAuthToken(token);
+        setTokenState(token);
+        setUser(user);
+        return { success: true, message: res.message || 'Signed in successfully' };
       }
       return { success: false, message: res.message || 'Login failed' };
     } catch (err: any) {
@@ -80,11 +82,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }) => {
     try {
       const res = await api.register(data);
-      if (res.success && res.data) {
-        setAuthToken(res.data.token);
-        setTokenState(res.data.token);
-        setUser(res.data.user);
-        return { success: true };
+      const user = res.data?.user || res.user;
+      const token = res.data?.token || res.token;
+      if (res.success && user && token) {
+        setAuthToken(token);
+        setTokenState(token);
+        setUser(user);
+        return { success: true, message: res.message || 'Registered successfully' };
       }
       return { success: false, message: res.message || 'Registration failed' };
     } catch (err: any) {
@@ -95,11 +99,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const demoLogin = async (role: UserRole) => {
     try {
       const res = await api.demoLogin(role);
-      if (res.success && res.data) {
-        setAuthToken(res.data.token);
-        setTokenState(res.data.token);
-        setUser(res.data.user);
-        return { success: true };
+      const user = res.data?.user || res.user;
+      const token = res.data?.token || res.token;
+      if (res.success && user && token) {
+        setAuthToken(token);
+        setTokenState(token);
+        setUser(user);
+        return { success: true, message: res.message || `Demo access granted as ${role}` };
       }
       return { success: false, message: res.message || 'Demo login failed' };
     } catch (err: any) {

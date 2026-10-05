@@ -9,6 +9,7 @@ interface OperationsWorkspaceProps {
   analytics: FleetAnalytics | null;
   onRefresh: () => void;
   onClose: () => void;
+  initialTab?: 'manifest' | 'inventory' | 'workshop' | 'analytics';
 }
 
 export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
@@ -18,9 +19,10 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({
   analytics,
   onRefresh,
   onClose,
+  initialTab = 'manifest',
 }) => {
   const { isAdmin, demoLogin } = useAuth();
-  const [activeTab, setActiveTab] = useState<'manifest' | 'inventory' | 'workshop' | 'analytics'>('manifest');
+  const [activeTab, setActiveTab] = useState<'manifest' | 'inventory' | 'workshop' | 'analytics'>(initialTab);
 
   // Manifest Action Modals
   const [dispatchRental, setDispatchRental] = useState<RentalBooking | null>(null);

@@ -28,17 +28,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMsg(null);
     setLoading(true);
     const res = await login(email, password);
     setLoading(false);
     if (res.success) {
-      onClose();
+      setSuccessMsg(res.message || 'Signed in successfully');
+      setTimeout(() => {
+        onClose();
+        setSuccessMsg(null);
+      }, 500);
     } else {
       setError(res.message || 'Invalid credentials');
     }
@@ -47,6 +53,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMsg(null);
     setLoading(true);
     const res = await register({
       name,
@@ -58,7 +65,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     });
     setLoading(false);
     if (res.success) {
-      onClose();
+      setSuccessMsg(res.message || 'Account registered successfully');
+      setTimeout(() => {
+        onClose();
+        setSuccessMsg(null);
+      }, 500);
     } else {
       setError(res.message || 'Registration failed');
     }
@@ -66,11 +77,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleDemoAccess = async (targetRole: UserRole) => {
     setError(null);
+    setSuccessMsg(null);
     setLoading(true);
     const res = await demoLogin(targetRole);
     setLoading(false);
     if (res.success) {
-      onClose();
+      setSuccessMsg(res.message || `Demo access granted as ${targetRole}`);
+      setTimeout(() => {
+        onClose();
+        setSuccessMsg(null);
+      }, 500);
     } else {
       setError(res.message || '1-Click access failed');
     }
@@ -156,6 +172,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Form Body */}
         <div className="p-6">
+          {successMsg && (
+            <div className="mb-4 p-3.5 bg-emerald-950/70 border border-emerald-500/50 rounded-lg text-xs text-emerald-200 flex items-center gap-2.5 shadow-lg animate-fadeIn">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="font-mono font-medium">{successMsg}</span>
+            </div>
+          )}
+
           {error && (
             <div className="mb-4 p-3 bg-red-950/40 border border-red-500/30 rounded-lg text-xs text-red-300 flex items-center gap-2">
               <span>⚠</span>

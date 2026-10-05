@@ -15,7 +15,7 @@ import { AuthModal } from './components/AuthModal';
 import { api, Vehicle, CategoryStat, RentalBooking, FleetAnalytics, UserRole, BASE_URL } from './api/client';
 
 const AppContent: React.FC = () => {
-  const { isAdmin, isAuthenticated } = useAuth();
+  const { user, isAdmin, isCustomer, isAuthenticated } = useAuth();
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,16 +30,17 @@ const AppContent: React.FC = () => {
   const [isBookingOpen, setIsBookingOpen] = useState<boolean>(false);
   const [bookingVehicle, setBookingVehicle] = useState<Vehicle | null>(null);
   const [isOperationsOpen, setIsOperationsOpen] = useState<boolean>(false);
+  const [operationsTab, setOperationsTab] = useState<'manifest' | 'inventory' | 'workshop' | 'analytics'>('manifest');
   const [isCustomerPortalOpen, setIsCustomerPortalOpen] = useState<boolean>(false);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [authDefaultTab, setAuthDefaultTab] = useState<'login' | 'register'>('login');
   const [authDefaultRole, setAuthDefaultRole] = useState<UserRole>('CUSTOMER');
 
   // Toast Notification
-  const [notification, setNotification] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
-  const showNotification = (msg: string) => {
-    setNotification(msg);
+  const showNotification = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
+    setNotification({ message, type });
     setTimeout(() => {
       setNotification(null);
     }, 4500);
@@ -127,13 +128,14 @@ const AppContent: React.FC = () => {
   const handleOpenCustomerPortal = () => {
     if (!isAuthenticated) {
       handleOpenAuth('login', 'CUSTOMER');
-      showNotification('Please sign in or select Private Client access to view your reservations.');
+      showNotification('Please sign in or select Private Client access to view your reservations.', 'info');
     } else {
       setIsCustomerPortalOpen(true);
     }
   };
 
-  const handleOpenOperations = () => {
+  const handleOpenOperations = (tab: 'manifest' | 'inventory' | 'workshop' | 'analytics' = 'manifest') => {
+    setOperationsTab(tab);
     setIsOperationsOpen(true);
   };
 
@@ -145,9 +147,25 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-[#faf9f6] text-[#090a0b] font-sans selection:bg-[#c5a880]/30 selection:text-[#090a0b]">
       {/* Toast Notification Banner */}
       {notification && (
-        <div className="fixed bottom-6 right-6 z-50 bg-[#090a0b] text-[#faf9f6] border border-[#c5a880] px-5 py-3.5 shadow-2xl flex items-center space-x-3 text-xs font-mono animate-fade-in">
-          <span className="w-2 h-2 rounded-full bg-[#c5a880] animate-ping" />
-          <span>{notification}</span>
+        <div
+          className={`fixed bottom-6 right-6 z-50 px-5 py-3.5 shadow-2xl flex items-center space-x-3 text-xs font-mono animate-fade-in rounded-lg border ${
+            notification.type === 'success'
+              ? 'bg-[#0b1912] text-emerald-200 border-emerald-500/60'
+              : notification.type === 'error'
+              ? 'bg-[#220d0f] text-rose-200 border-rose-500/60'
+              : 'bg-[#090a0b] text-[#faf9f6] border-[#c5a880]'
+          }`}
+        >
+          <span
+            className={`w-2 h-2 rounded-full ${
+              notification.type === 'success'
+                ? 'bg-emerald-400'
+                : notification.type === 'error'
+                ? 'bg-rose-400'
+                : 'bg-[#c5a880]'
+            } animate-ping`}
+          />
+          <span>{notification.message}</span>
         </div>
       )}
 
@@ -169,7 +187,7 @@ const AppContent: React.FC = () => {
       {/* Global Executive Masthead Navigation */}
       <Navbar
         onOpenBooking={() => handleOpenBooking()}
-        onOpenOperations={handleOpenOperations}
+        onOpenOperations={() => handleOpenOperations('manifest')}
         onOpenCustomerPortal={handleOpenCustomerPortal}
         onOpenAuth={() => handleOpenAuth()}
         onNavigateSection={handleNavigateSection}
@@ -178,6 +196,139 @@ const AppContent: React.FC = () => {
 
       {/* Cinematic Automotive Hero Section */}
       <Hero onSearch={handleHeroSearch} />
+
+      {/* Executive Fleet Operations Control Console (Prominently rendered for Admin) */}
+      {isAdmin && (
+        <section className="bg-gradient-to-b from-[#11141a] to-[#0c0e12] border-y border-[#c5a880]/30 py-8 px-6 sm:px-10 text-white shadow-2xl">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-white/10 gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="text-[10px] font-mono tracking-widest text-[#c5a880] uppercase font-semibold">
+                    Executive Fleet Operations Console &bull; Full Admin Access Active
+                  </span>
+                </div>
+                <h2 className="text-2xl font-serif text-white mt-1">
+                  Fleet Management &amp; Dispatcher Workspace
+                </h2>
+                <div className="text-xs text-neutral-400 font-mono mt-0.5">
+                  Logged in: <span className="text-white font-medium">{user?.name}</span> ({user?.email}) &bull; Role: <span className="text-[#c5a880] font-semibold">{user?.role}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleOpenOperations('manifest')}
+                  className="px-4 py-2.5 bg-[#c5a880] hover:bg-[#d8be99] text-black text-xs font-mono font-semibold uppercase tracking-wider rounded-sm transition shadow-md flex items-center gap-1.5"
+                >
+                  <span>Launch Operations Workspace ↗</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Action Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
+              <div
+                onClick={() => handleOpenOperations('manifest')}
+                className="p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#c5a880]/60 transition cursor-pointer group shadow-sm"
+              >
+                <div className="flex items-center justify-between text-xs font-mono text-[#c5a880] mb-2">
+                  <span className="font-semibold">01. DISPATCH &amp; SETTLE</span>
+                  <span className="group-hover:translate-x-1 transition-transform">→</span>
+                </div>
+                <div className="text-sm font-medium text-white mb-1">
+                  Manifest ({rentals.length} Bookings)
+                </div>
+                <p className="text-xs text-neutral-400 font-sans leading-relaxed">
+                  Record vehicle departure odometers, inspect returned vehicles, and calculate automatic settlements with night halt audits.
+                </p>
+              </div>
+
+              <div
+                onClick={() => handleOpenOperations('inventory')}
+                className="p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#c5a880]/60 transition cursor-pointer group shadow-sm"
+              >
+                <div className="flex items-center justify-between text-xs font-mono text-[#c5a880] mb-2">
+                  <span className="font-semibold">02. INVENTORY &amp; SCRAP</span>
+                  <span className="group-hover:translate-x-1 transition-transform">→</span>
+                </div>
+                <div className="text-sm font-medium text-white mb-1">
+                  Fleet Registry ({vehicles.length} Units)
+                </div>
+                <p className="text-xs text-neutral-400 font-sans leading-relaxed">
+                  Acquire new vehicles into fleet, update plate registrations, mark vehicles under repair, or condemn end-of-life units.
+                </p>
+              </div>
+
+              <div
+                onClick={() => handleOpenOperations('workshop')}
+                className="p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#c5a880]/60 transition cursor-pointer group shadow-sm"
+              >
+                <div className="flex items-center justify-between text-xs font-mono text-[#c5a880] mb-2">
+                  <span className="font-semibold">03. WORKSHOP &amp; FUEL</span>
+                  <span className="group-hover:translate-x-1 transition-transform">→</span>
+                </div>
+                <div className="text-sm font-medium text-white mb-1">Maintenance &amp; Fuel Desk</div>
+                <p className="text-xs text-neutral-400 font-sans leading-relaxed">
+                  Issue maintenance work orders, assign depot workshops, and log fuel dispensations with odometer correlation.
+                </p>
+              </div>
+
+              <div
+                onClick={() => handleOpenOperations('analytics')}
+                className="p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#c5a880]/60 transition cursor-pointer group shadow-sm"
+              >
+                <div className="flex items-center justify-between text-xs font-mono text-[#c5a880] mb-2">
+                  <span className="font-semibold">04. BUSINESS INTELLIGENCE</span>
+                  <span className="group-hover:translate-x-1 transition-transform">→</span>
+                </div>
+                <div className="text-sm font-medium text-white mb-1">Profitability &amp; ROI</div>
+                <p className="text-xs text-neutral-400 font-sans leading-relaxed">
+                  Real-time category margins, total revenue, repair overheads, fuel expenses, and automated fleet sizing recommendations.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Customer / Client Welcome Bar */}
+      {isCustomer && (
+        <section className="bg-gradient-to-b from-[#0e1713] to-[#0a100d] border-y border-emerald-500/30 py-6 px-6 sm:px-10 text-white shadow-xl">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                <span className="text-[10px] font-mono tracking-widest text-emerald-300 uppercase font-semibold">
+                  Private Client Account Active
+                </span>
+              </div>
+              <h2 className="text-xl font-serif text-white mt-1">
+                Welcome back, {user?.name}
+              </h2>
+              <div className="text-xs text-neutral-400 font-mono mt-0.5">
+                License: <span className="text-neutral-200">{user?.drivingLicense || 'Verified on file'}</span> &bull; Reservations linked to your account
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleOpenCustomerPortal}
+                className="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 text-xs font-mono uppercase tracking-wider rounded-sm transition flex items-center gap-1.5"
+              >
+                <span>📋 My Reservations &amp; Settlement Vouchers →</span>
+              </button>
+              <button
+                onClick={() => handleOpenBooking()}
+                className="px-4 py-2 bg-[#c5a880] hover:bg-[#d8be99] text-black text-xs font-mono font-semibold uppercase tracking-wider rounded-sm transition"
+              >
+                Reserve Vehicle
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Main Vehicle Catalogue Grid */}
       <main className="flex-1 w-full">
@@ -209,7 +360,7 @@ const AppContent: React.FC = () => {
       {/* Substantial Dark Automotive Footer */}
       <Footer
         onOpenBooking={() => handleOpenBooking()}
-        onOpenOperations={handleOpenOperations}
+        onOpenOperations={() => handleOpenOperations('manifest')}
         onScrollToSection={handleNavigateSection}
       />
 
@@ -235,7 +386,7 @@ const AppContent: React.FC = () => {
             setBookingVehicle(null);
           }}
           onSuccess={() => {
-            showNotification('Reservation successfully confirmed. Confirmation manifest generated.');
+            showNotification('Reservation successfully confirmed. Confirmation manifest generated.', 'success');
             loadData();
           }}
         />
@@ -250,6 +401,7 @@ const AppContent: React.FC = () => {
           analytics={analytics}
           onRefresh={loadData}
           onClose={() => setIsOperationsOpen(false)}
+          initialTab={operationsTab}
         />
       )}
 
